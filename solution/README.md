@@ -4,6 +4,9 @@
 across all six cases.** The user ended the session before R4's full evaluation.
 R4 is an incomplete experiment, not a replacement. No further case runs are queued.
 
+For upload, use [UPLOAD.md](UPLOAD.md) and the exact selected
+[V1 source directory](submission/README.md), not experimental `fixer/`.
+
 [future work.md](<future work.md>) lists every unfinished evaluation, architecture
 increment and verification task. [Selection manifest](benchmarks/selected-version.json)
 records the chosen deliverable and verified hashes.
@@ -236,10 +239,9 @@ that breaks baseline-passing public/private tests can zero its case.
 
 New repository artifacts stay under `solution/`:
 
-- `results/<run>/`: official results, logs, patches, and retained evaluation work.
-- `results/.scratch/`: grader workspaces; `--keep` retains case reports.
-- `results/.runner/<run-id>/`: proxy log and actual spending ledger.
-- `results/.grader-cache/`: overlay for the unmodified grader's cache.
+- `results/<run>/`: retained result/eval summaries, logs and patches; bulky replays were moved out.
+- Scratch workspaces, runner proxy state and caches were recoverably removed during upload cleanup.
+- `evidence/runtime-reports/`: nineteen controller reports preserved before removing scratch.
 - `benchmarks/`: sanitized scorecards and image/source/test identities.
 - `evidence/build-chats/`: new redacted public chat exports with role/hash manifest.
   Existing V1 artifacts under root `results/` and `evidence/` remain preserved.
@@ -282,14 +284,11 @@ The target is 12/12 supplied bugs; neither that target nor unseen-case
 correctness is presently demonstrated. Prioritize observed repair failures
 over additional orchestration complexity.
 
-An interim [R3 build-chat checkpoint](evidence/build-chats-r3-checkpoint/manifest.json)
-captures all four actual development sessions through **2026-10-13 21:31:12 UTC**.
-Its role manifest records verified source/export hashes, counts, exclusions and
-credential redaction. It is not a final export and predates the later A1 launch;
-ongoing evaluations and subsequent messages are outside that cutoff.
+The redundant interim R3 chat checkpoint was moved to the recoverable cleanup
+location; [cleanup manifest](cleanup-manifest.json) records its original path.
 
 The [R4 wrap-up build-chat export](evidence/build-chats-r4-final/manifest.json)
 captures four actual sessions through **2026-10-13 22:02:36 UTC** at user-directed
 wrap-up. Its manifest records verified source/export hashes, counts and exclusions.
 It may predate final result bookkeeping and is not
-evidence that all six R4 cases completed. Earlier exports remain preserved.
+evidence that all six R4 cases completed. The selected V1 chat export remains intact.

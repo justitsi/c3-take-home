@@ -69,5 +69,6 @@ Detailed agent ownership, dependencies, pros/cons, timeboxes and milestones are 
 ## Safe restart instructions
 
 - Start by reading this file, `STATUS.md`, the selection manifest, and V2/V3 review documents; verify live state before repeating commands.
+- Upload cleanup preserved summaries/logs/patches and moved bulky replay/scratch/cache data to the recovery location in `cleanup-manifest.json`. Detailed controller reports are now in `solution/evidence/runtime-reports/`. Selected V1 source is directly available at `solution/submission/fixer/`; use `UPLOAD.md` for packaging.
 - Current work branch is `solution/prototype-v2`; main remains finalized V1 `96e06b2`. Current `solution/fixer/` is experimental R4. Selected V1 source is separately archived at `solution/results/selected-v1-source.tar`; selected image is `c3-fixer-prototype:best-verified`/`v1-final`.
 - Ask for additional evaluation time/spend and desired scope. Preserve `.env` confidentiality, supplied grader/tests/simulator/corpus, user edits and all frozen tags. Keep every new repository artifact under `solution/`.

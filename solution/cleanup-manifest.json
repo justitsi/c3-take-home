@@ -1,0 +1,128 @@
+{
+  "cleaned_at_utc": "2026-10-13 22:23:54 UTC",
+  "method": "Recoverable move; no recursive deletion.",
+  "recovery_directory": "/private/tmp/c3-upload-cleanup.hU9PHx",
+  "recovery_warning": "Outside repository in /private/tmp; operating system may eventually remove temporary files.",
+  "moved_directories": [
+    ".pytest_cache",
+    "grader/.cache",
+    "results/.runner",
+    "results/.scratch",
+    "results/baseline-main/A1/eval-work",
+    "results/baseline-main/A2/eval-work",
+    "results/baseline-main/A3/eval-work",
+    "results/baseline-main/B1/eval-work",
+    "results/baseline-main/B2/eval-work",
+    "results/baseline-main/B3/eval-work",
+    "results/baseline-main-B2-serial/B2/eval-work",
+    "results/minimal-reference-A2/A2/eval-work",
+    "results/prototype-v1-final-all/A1/eval-work",
+    "results/prototype-v1-final-all/A2/eval-work",
+    "results/prototype-v1-final-all/A3/eval-work",
+    "results/prototype-v1-final-all/B1/eval-work",
+    "results/prototype-v1-final-all/B2/eval-work",
+    "results/prototype-v1-final-all/B3/eval-work",
+    "results/prototype-v1-pilot/A1/eval-work",
+    "results/prototype-v1-pilot/B1/eval-work",
+    "solution/__pycache__",
+    "solution/evidence/build-chats-r3-checkpoint",
+    "solution/fixer/__pycache__",
+    "solution/results/.bind-restore-test",
+    "solution/results/.grader-cache",
+    "solution/results/.runner",
+    "solution/results/.scratch",
+    "solution/results/v2-r1-pilot/B2/eval-work",
+    "solution/results/v2-r1-pilot/B3/eval-work",
+    "solution/results/v2-r2-pilot/B2/eval-work",
+    "solution/results/v2-r2-pilot/B3/eval-work",
+    "solution/results/v2-r3-cases/A1-session/A1/eval-work",
+    "solution/results/v2-r3-cases/B2-session/B2/eval-work",
+    "solution/results/v2-r3-cases/B3-session/B3/eval-work",
+    "solution/results/v2-r4-cases/A1-session/A1/eval-work",
+    "solution/results/v2-r4-cases/A2-session/A2/eval-work",
+    "solution/results/v2-r4-cases/B2-session/B2/eval-work",
+    "solution/results/v2-r4-cases/B3-session/B3/eval-work",
+    "solution/tests/__pycache__"
+  ],
+  "moved_size_kib": 7890696,
+  "preserved_controller_reports": [
+    {
+      "original": "results/.scratch/c3grade-A1-r1-nx33dya7/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-final-A1.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-A2-r1-expzo7_i/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-final-A2.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-A3-r1-7x51g0da/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-final-A3.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-B1-r1-4oor38y_/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-final-B1.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-B2-r1-es8hwkys/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-final-B2.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-B3-r1-ic3gd7ul/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-final-B3.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-A1-r1-j7y2jtgf/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-pilot-A1.json"
+    },
+    {
+      "original": "results/.scratch/c3grade-B1-r1-wn70b2ie/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v1-pilot-B1.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B2-r1-76p6vk7p/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r1-B2.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B3-r1-nq96n4sp/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r1-B3.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B2-r1-s2s4n_br/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r2-B2.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B3-r1-nft6vsx1/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r2-B3.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-A1-r1-6rxlfvod/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r3-A1.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B2-r1-zyzwym1r/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r3-B2.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B3-r1-znybwcaj/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r3-B3.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-A1-r1-_xjiegtc/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r4-A1.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-A2-r1-k8s7iv0b/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r4-A2-interrupted.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B2-r1-6wc6f5a9/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r4-B2.json"
+    },
+    {
+      "original": "solution/results/.scratch/c3grade-B3-r1-8688g8au/workspace/.c3-fixer-report.json",
+      "preserved": "solution/evidence/runtime-reports/v2-r4-B3.json"
+    }
+  ],
+  "retained": "Selected V1 image/source, result/eval JSON, patches, fixer logs, scorecards, V1 and latest V2 public chat snapshots.",
+  "credentials": "Local .env retained and ignored; not read or packaged."
+}

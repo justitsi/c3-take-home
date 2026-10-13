@@ -1,0 +1,32 @@
+{
+  "selected_version": "v1-final",
+  "source_ref": "96e06b2",
+  "runtime_source_ref": "70878af",
+  "image_identity": "sha256:38219577c596f30f84ebdc58bf1ec8b27f941545a61a86fcd78e2b6b94f3c6b3",
+  "verification": "All eight runtime build-context files match preserved image; all 17 source/test/helper files match finalized Git source.",
+  "offline_recheck": {
+    "passed": 62,
+    "seconds": 23.19,
+    "network": "none",
+    "paid_model_calls": 0
+  },
+  "files": {
+    "fixer/.dockerignore": "0081720c1da2346998dc9b0bdf1b47eac76ea816f39ce5ecde5f1d9d028443b4",
+    "fixer/Dockerfile": "592e5a6f2d322f832a639a107aea4e454fb60020875e8188f6afc585b6449e30",
+    "fixer/fix.py": "74b61ecb49b0f8350739fc87d7f6ffb33cddb4e0831447318512a165f1d668a7",
+    "fixer/model.py": "791b3c2a35ff2289a1db8bafa3361e25ab8599435560242c4f65056e0dbca214",
+    "fixer/retrieval.py": "80434f70299fe3258a58eb388125cbe827ca203b1feaca8161cd17f3a9125ae7",
+    "fixer/run.sh": "5c097b8ed8c2808ac0d1c25ab9a454bf269f102a0d71c70c237caa95ef97b188",
+    "fixer/tools.py": "6a840894720f29dc1a27e87c3b298b21c2254651abd723863e8cfb4b8766c7f0",
+    "fixer/validation.py": "424c8e129852fab2a5778af95cb7d0ce970bb58b499a0be1071e86c3656de729",
+    "benchmark.py": "7f24df3003c690b65657e88b77771959e5ad6d02660037ad6ac79897069ae2bb",
+    "export_build_chats.py": "f209d7a434a74789a81891d20f651b3967c598723ef698c02af4a782976869fd",
+    "tests/conftest.py": "f7dd733c8e1f233ffc1e89fda36528ef0b10b6e9bfdd0c3ce76e096c928508b3",
+    "tests/test_benchmark.py": "c3e071f80003093ba8ac1147a920e61e02c52082750069e3df184bbfb4e97a97",
+    "tests/test_export_build_chats.py": "49863ffe9fba29470966ab8891a215050a55a55f753462fdbe2fdb9fd3582024",
+    "tests/test_harness.py": "ddc1199f26d55b419267bdcbc2d7f888df9b9311e1766e627caba668cd407963",
+    "tests/test_model.py": "46da958c155b510630793d5cb901c4194883473943c1f539f21e85bbf1db0177",
+    "tests/test_tools.py": "97d7468aac7fee41eae80faa87a4595708bc92720c5fab370f2e384155472aaa",
+    "tests/test_validation.py": "812487e9e15cab612a383de2a10616a5ec796d5b5c894f71f038d27a88cf6e8d"
+  }
+}

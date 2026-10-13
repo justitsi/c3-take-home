@@ -6,6 +6,7 @@
   "architecture": "linux/amd64",
   "image_size_bytes": 47626053,
   "finalized_source_ref": "96e06b2",
+  "selected_source_directory": "solution/submission/fixer",
   "runtime_source_ref": "70878af",
   "scorecard": "solution/benchmarks/v1-final-evaluation.json",
   "bugs_fixed": 9,
@@ -18,7 +19,7 @@
   "reason": "Strongest fully evaluated candidate. R4 has promising partial results but no complete six-case comparison and includes an interrupted A2 run.",
   "experimental_branch": "solution/prototype-v2",
   "experimental_runtime_source_ref": "ac409bf",
-  "experimental_source_warning": "Current solution/fixer is R4, not the selected V1 source; do not rebuild v1-final from this tree.",
+  "experimental_source_warning": "Current solution/fixer is R4. Selected V1 source is solution/submission/fixer; do not rebuild v1-final from the experimental tree.",
   "future_work": "solution/future work.md",
   "main_unchanged": true,
   "external_submission_or_push_performed": false
