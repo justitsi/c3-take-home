@@ -1,0 +1,9 @@
+{
+  "promote": true,
+  "baseline_fixed": 0,
+  "candidate_fixed": 9,
+  "improvement": 9,
+  "reasons": [],
+  "candidate_image_id": "sha256:38219577c596f30f84ebdc58bf1ec8b27f941545a61a86fcd78e2b6b94f3c6b3",
+  "candidate_source_ref": "70878af"
+}

@@ -1,0 +1,23 @@
+{
+  "checkpoint": "prototype-v1-final",
+  "branch": "solution/prototype-v1",
+  "image": "c3-fixer-prototype:v1-final",
+  "image_id": "sha256:38219577c596f30f84ebdc58bf1ec8b27f941545a61a86fcd78e2b6b94f3c6b3",
+  "platform": "linux/amd64",
+  "docker_inspect_size_bytes": 47626053,
+  "image_tarball": "results/prototype-v1-final.tar",
+  "image_tarball_sha256": "243752078a470551b2fb7f669ceb31731f1adf472df7ec2ccd8a24052da4a11d",
+  "runtime_source_ref": "70878af",
+  "unit_tests": {"passed": 62, "failed": 0, "wall_s": 23.51, "harness_checks": 45, "chat_export_checks": 17, "environment": "Docker; Python 3.12; network none"},
+  "paid_evaluation": "v1-final-evaluation.json",
+  "pilot_evidence": "v1-pilot.json",
+  "baseline_evidence": "main-baseline.json",
+  "promotion_gate": "v1-promotion.json",
+  "promotion_reason": "Complete frozen-image comparison fixes 9 bugs versus the original main baseline of 0; all baseline-relative gates pass and no infrastructure failures occurred.",
+  "build_chat_manifest": "evidence/build-chats/manifest.json",
+  "input_tokens": 5871987,
+  "cached_input_tokens": 4958048,
+  "output_tokens": 62414,
+  "cached_input_fraction": 0.844356,
+  "closure_reason": "User requested finalizing prototype v1 before planning version two."
+}

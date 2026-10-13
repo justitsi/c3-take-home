@@ -1,0 +1,53 @@
+{
+  "bugs_fixed": 0,
+  "bugs_total": 2,
+  "cases": {
+    "A2": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 1,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "A2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 33922,
+      "output_tokens": 4760,
+      "patch_files": [
+        "src/jobrouter/router.py"
+      ],
+      "patch_sha256": "dba590f22d7dfdf20230f786b28ba624193f253270a7853a0ce3f391c9108807",
+      "regression_ok": false,
+      "result_path": "results/minimal-reference-A2/A2/result.json",
+      "spend_usd": 0.198605,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 74.163
+    }
+  },
+  "complete": false,
+  "fixer_wall_s": 74.163,
+  "image": "c3-fixer-minimal-reference:v1",
+  "image_id": "sha256:78efdf65a67ea7046cfda49b945422b839d825d946a1b2986c14a39a5ce2ac29",
+  "infrastructure_errors": [],
+  "missing_cases": [
+    "A1",
+    "A3",
+    "B1",
+    "B2",
+    "B3"
+  ],
+  "source_ref": "2b9066c",
+  "spend_usd": 0.198605
+}
