@@ -72,15 +72,18 @@ READ_TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "inspect_trace",
-            "description": "Inspect bounded JSONL trace events with original line numbers. Use artifacts/<run>/trace.jsonl, optional literal entity/event query, and optional center_t ± window_s. Filters combine; returns at most 100 events/18,000 characters, scanning at most 64MiB. Malformed lines are counted, not executed.",
+            "description": "Inspect bounded JSONL trace events with original line numbers. query is ONE literal substring; use all_terms for AND across separate JSON fields. Optional center_t ± window_s combines with text filters. When next_line is returned, repeat with start_line=next_line to reach later evidence. Returns at most 100 events/18,000 characters; scans at most 64MiB including skipped lines. Malformed lines are counted, not executed.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {"type": "string"},
                     "query": {"type": "string"},
+                    "all_terms": {"type": "array", "minItems": 1, "maxItems": 8,
+                                  "items": {"type": "string", "minLength": 1, "maxLength": 256}},
                     "center_t": {"type": "number"},
                     "window_s": {"type": "number", "default": 2.0},
                     "limit": {"type": "integer", "default": 30},
+                    "start_line": {"type": "integer", "minimum": 1, "default": 1},
                 },
                 "required": ["path"],
                 "additionalProperties": False,
@@ -294,12 +297,13 @@ class Tools:
         with self._write_lock:
             return self._apply_edits(edits)
 
-    def inspect_trace(self, path: str, query=None, center_t=None, window_s=2.0, limit=30) -> dict:
+    def inspect_trace(self, path: str, query=None, center_t=None, window_s=2.0, limit=30,
+                      all_terms=None, start_line=1) -> dict:
         try:
             target, root = self._resolve(path)
             return inspect_jsonl(target, self._label(target, root), query=query,
                                  center_t=center_t, window_s=window_s, limit=limit,
-                                 stop=self.stop)
+                                 stop=self.stop, all_terms=all_terms, start_line=start_line)
         except (OSError, TypeError, ValueError) as exc:
             return {"ok": False, "error": str(exc)}
 

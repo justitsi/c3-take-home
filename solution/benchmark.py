@@ -36,22 +36,90 @@ def collect(directories: list[Path], image: str, source_ref: str, image_id: str)
             "fixer_wall_s": round(sum(float(r["wall_s"] or 0) for r in valid), 3)}
 
 
+def _integer(value) -> bool:
+    return type(value) is int and value >= 0
+
+
+def _evidence(report: dict, label: str, reasons: list[str]) -> tuple[dict, int]:
+    """Validate score provenance before using any headline as promotion evidence."""
+    cases = report.get("cases")
+    if not isinstance(cases, dict):
+        reasons.append(f"{label}: missing case evidence")
+        return {}, 0
+    if report.get("complete") is not True or set(cases) != CASES:
+        reasons.append(f"{label}: all six practice cases must have complete evidence")
+    if report.get("infrastructure_errors") or report.get("missing_cases"):
+        reasons.append(f"{label}: report contains missing cases or infrastructure errors")
+    coverage = {}
+    credited_total = 0
+    bug_total = 0
+    for case, result in sorted(cases.items()):
+        prefix = f"{label} {case}"
+        if not isinstance(result, dict):
+            reasons.append(f"{prefix}: missing result evidence")
+            continue
+        if result.get("infra_error") is not None:
+            reasons.append(f"{prefix}: infrastructure failure")
+        if label == "candidate":
+            if "infra_error" not in result:
+                reasons.append(f"{prefix}: infrastructure status is missing")
+            if result.get("tests_ok") is not True or result.get("regression_ok") is not True:
+                reasons.append(f"{prefix}: public and regression gates must both pass")
+            if type(result.get("fixer_exit")) is not int or result["fixer_exit"] != 0:
+                reasons.append(f"{prefix}: fixer must exit zero")
+            if result.get("timed_out") is not False:
+                reasons.append(f"{prefix}: fixer timeout status must be false")
+        bugs = result.get("bugs")
+        if not isinstance(bugs, list) or not bugs:
+            reasons.append(f"{prefix}: missing per-bug evidence")
+            continue
+        bug_total += len(bugs)
+        ids = set()
+        case_coverage = set()
+        credited = 0
+        for bug in bugs:
+            if not isinstance(bug, dict):
+                reasons.append(f"{prefix}: malformed bug evidence")
+                continue
+            bug_id = bug.get("id")
+            total, passed, fixed = bug.get("seeds_total"), bug.get("seeds_passed"), bug.get("fixed")
+            if not isinstance(bug_id, str) or not bug_id or bug_id in ids:
+                reasons.append(f"{prefix}: bug IDs must be non-empty and unique")
+            else:
+                ids.add(bug_id)
+                if _integer(total):
+                    case_coverage.add((bug_id, total))
+            if type(fixed) is not bool:
+                reasons.append(f"{prefix}: fixed flags must be explicit booleans")
+            if not _integer(total) or total != 20 or not _integer(passed) or passed > 20:
+                reasons.append(f"{prefix}: each bug needs coherent counts across 20 seeds")
+            if fixed is True:
+                credited += 1
+                if type(passed) is not int or passed != 20 or type(total) is not int or total != 20:
+                    reasons.append(f"{prefix}: credited bug must pass all 20 seeds")
+            # A later chained bug can pass its own seeds yet remain uncredited
+            # until a prerequisite is repaired, so false does not imply <20.
+        coverage[case] = case_coverage
+        if not _integer(result.get("bugs_fixed")) or result["bugs_fixed"] != credited:
+            reasons.append(f"{prefix}: case score disagrees with credited bug flags")
+        credited_total += credited
+    if not _integer(report.get("bugs_fixed")) or report["bugs_fixed"] != credited_total:
+        reasons.append(f"{label}: headline score disagrees with credited bug flags")
+    if "bugs_total" in report and (not _integer(report["bugs_total"]) or report["bugs_total"] != bug_total):
+        reasons.append(f"{label}: headline bug total disagrees with per-bug evidence")
+    return coverage, credited_total
+
+
 def compare(baseline: dict, candidate: dict) -> dict:
     reasons = []
-    if not baseline.get("complete") or not candidate.get("complete"):
-        reasons.append("all six cases must have non-infrastructure results for both versions")
-    if set(baseline.get("cases", {})) != set(candidate.get("cases", {})):
+    old_coverage, old_score = _evidence(baseline, "baseline", reasons)
+    new_coverage, new_score = _evidence(candidate, "candidate", reasons)
+    if set(old_coverage) != set(new_coverage):
         reasons.append("case sets differ")
-    for case in set(baseline.get("cases", {})) & set(candidate.get("cases", {})):
-        old = baseline["cases"][case]
-        new = candidate["cases"][case]
-        old_bugs = {(b["id"], b["seeds_total"]) for b in old.get("bugs") or []}
-        new_bugs = {(b["id"], b["seeds_total"]) for b in new.get("bugs") or []}
-        if old_bugs != new_bugs:
+    for case in sorted(set(old_coverage) & set(new_coverage)):
+        if old_coverage[case] != new_coverage[case]:
             reasons.append(f"{case}: bug/seed coverage differs")
-        if new.get("bugs_fixed") and not (new.get("tests_ok") and new.get("regression_ok")):
-            reasons.append(f"{case}: positive score contradicts regression gates")
-    improvement = int(candidate.get("bugs_fixed", 0)) - int(baseline.get("bugs_fixed", 0))
+    improvement = new_score - old_score
     if improvement <= 0:
         reasons.append("candidate does not fix strictly more bugs")
     return {"promote": not reasons, "baseline_fixed": baseline.get("bugs_fixed", 0),

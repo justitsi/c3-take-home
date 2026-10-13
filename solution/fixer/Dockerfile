@@ -1,5 +1,5 @@
 # Build from the repository root:
-# docker build --platform linux/amd64 -t c3-fixer-prototype:v2-r1 solution/fixer
+# docker build --platform linux/amd64 -t c3-fixer-prototype:v2-r2 solution/fixer
 FROM --platform=linux/amd64 python:3.12.12-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
