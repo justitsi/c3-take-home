@@ -1,0 +1,121 @@
+{
+  "bugs_fixed": 4,
+  "bugs_total": 6,
+  "cases": {
+    "A1": {
+      "bugs": [
+        {
+          "fixed": true,
+          "id": "bug-1",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 1,
+      "cached_input_tokens": 2238321,
+      "case": "A1",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 2673886,
+      "output_tokens": 26057,
+      "patch_files": [
+        "src/jobrouter/store.py"
+      ],
+      "patch_sha256": "564e5b004bc6fcde68406f10fe5f952860c4df0c5bdf1ffd2c871c6881e9db4d",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r4-cases/A1-session/A1/result.json",
+      "spend_usd": 2.695635,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 538.803
+    },
+    "B2": {
+      "bugs": [
+        {
+          "fixed": true,
+          "id": "bug-1",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": true,
+          "id": "bug-3",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 2,
+      "cached_input_tokens": 2511901,
+      "case": "B2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 3084674,
+      "output_tokens": 33081,
+      "patch_files": [
+        "src/shardmr/gpu_client.py",
+        "src/shardmr/membership.py",
+        "src/shardmr/scheduler.py",
+        "src/shardmr/worker.py"
+      ],
+      "patch_sha256": "1c72e9154447b01de2191034094122b5befad74cd4f25c0812b377b93e1d4fac",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r4-cases/B2-session/B2/result.json",
+      "spend_usd": 3.397598,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 695.563
+    },
+    "B3": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": true,
+          "id": "bug-2",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 1,
+      "cached_input_tokens": 3818987,
+      "case": "B3",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 4576565,
+      "output_tokens": 35990,
+      "patch_files": [
+        "src/shardmr/membership.py",
+        "src/shardmr/worker.py"
+      ],
+      "patch_sha256": "cbf337dcff63f303054db6bd91ba2bc34ac1f88c1d96af9091f0b20905a4d417",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r4-cases/B3-session/B3/result.json",
+      "spend_usd": 4.526352,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 746.55
+    }
+  },
+  "complete": false,
+  "fixer_wall_s": 1980.916,
+  "image": "c3-fixer-prototype:v2-r4",
+  "image_id": "sha256:0c590ba5b53715f361871365a8213ec2a6689eb31a7a57e35c5905f61dda1ba4",
+  "infrastructure_errors": [],
+  "missing_cases": [
+    "A2",
+    "A3",
+    "B1"
+  ],
+  "source_ref": "ac409bf",
+  "spend_usd": 10.619585
+}

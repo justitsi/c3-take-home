@@ -1,10 +1,10 @@
 # V3 proposal review and implementation plan
 
 - **Scope:** local review of all 205 lines of [v3_architecture.md](v3_architecture.md), current controller code, and saved evaluation evidence. Preserve the supplied proposal unchanged.
-- **Now:** bounded R4 corrections under lead ownership; major architecture changes below are **planning only**. They are not authorized implementation, a new branch, or a merge/push request.
+- **Wrap-up:** user ended work. Select preserved V1 final **9/12**, alias `c3-fixer-prototype:best-verified`, not incomplete R4. Bounded R4 corrections are frozen and offline-tested, but official evaluation is partial/interrupted. No further runs are queued. Major architecture changes below are **planning only**, requiring a new implementation request.
 - **Objective:** more correctly repaired bugs per allowed run, then lower runtime/cost. Neither public checks nor this plan guarantee every supplied or unseen bug will be fixed.
-- **Evidence boundary:** V1 remains the complete baseline: **9/12**, $5.850678. R1's B2/B3 pilot scored **1/5**; R2 scored **2/5**, but B3's rollback failure/new regressions make it nonpromotable. Frozen R3 `2096b49` passed **278 offline tests**; its inspected B2 result is **0/3**, no retained patch, exit 0, passing baseline-relative gates. That one case is not a complete R3 score.
-- **Sources:** [local assessment README](../README.md), [RULES.md](../RULES.md), [V1 scorecard](benchmarks/v1-final-evaluation.json), [R2 pilot](benchmarks/v2-r2-pilot.json), [R3 image/tests](benchmarks/v2-r3-image.json), [R3 B2 result](results/v2-r3-cases/B2-session/B2/result.json). Proposal paper links are unverified background, not evidence of benefits here.
+- **Evidence boundary:** V1 is the selected complete result: **9/12**, $5.850678. R1's B2/B3 pilot scored **1/5**; R2 scored **2/5**, but B3's rollback failure/new regressions make it nonpromotable. R3 `2096b49` scored **2/6** across A1/B2/B3 for **$11.533084**, **1,928.95 s**; A2/A3/B1 were not evaluated on R3. Frozen R4 `ac409bf` passed **287 exact-image offline tests in 31.00 s**, including real host-bind recovery. Its three uninterrupted completed cases scored A1 **1/1**, B2 **2/3**, B3 **1/2**: **4/6**, **$10.619585**, **1,980.916 s**, versus V1's **3/6** there. This partial gain is not a complete comparison. A2 was SIGTERM-stopped and remains separate interrupted evidence; A3/B1 never launched. Tests do not establish repair effectiveness.
+- **Sources:** [local assessment README](../README.md), [RULES.md](../RULES.md), [V1 scorecard](benchmarks/v1-final-evaluation.json), [R2 pilot](benchmarks/v2-r2-pilot.json), [R3 partial scorecard](benchmarks/v2-r3-partial.json), [R4 partial scorecard](benchmarks/v2-r4-partial.json), [R4 image/tests](benchmarks/v2-r4-image.json), [selected V1 source](results/selected-v1-source.tar). Proposal paper links are unverified background, not evidence of benefits here.
 
 ## Contract and operating limits
 
@@ -24,21 +24,23 @@
   - Shared budget reservations, output bounds, truncated-reply rejection and bounded transient retries: [model.py](fixer/model.py). Targeted current-contract lexical retrieval: [retrieval.py](fixer/retrieval.py).
   - **Pros:** preserves tested containment/rollback and avoids duplicated work. **Cons:** existing ledgers, review and higher round limits have not established a better complete score; mechanical presence is not empirical success.
 
-## Minor R4 work: current window only
+## Minor R4 work: frozen and tested; evaluation interrupted
 
-- **Decision: recover from truncation with an explicit completion flag.** Lead owns implementation in `model.py`/`fix.py`; independent reviewer owns adversarial checks.
+- **Checkpoint:** source `ac409bf`; `c3-fixer-prototype:v2-r4`, `linux/amd64`, 47,646,285 bytes; all ten build-context files match. Image identity: `sha256:0c590ba5b53715f361871365a8213ec2a6689eb31a7a57e35c5905f61dda1ba4`. Offline result: **287 passed, 31.00 s**. Official batch began **2026-10-13 21:47:53 UTC**, at most three separate case sessions/one worker each; user ended work before completion. Partial **4/6** does not establish a complete-set improvement.
+
+- **Implemented decision: recover from truncation with explicit synthesis completion state.** Lead owns `model.py`/`fix.py`; independent reviewer checks recovery boundaries.
   - Preserve the rule that partial/truncated tool calls never execute. Return an explicit complete/incomplete outcome; retry narrowly with shorter output while accounting for the charged response and remaining allowance.
   - Distinguish provider output truncation from locally clipped evidence; preserve evidence handles/paging instead of treating clipped JSON as complete.
   - **Pros:** prevents a supported repair from dying on response shape/output size. **Cons:** retries consume tokens and may repeat truncation; cap attempts and never waive parsing/validation.
-- **Decision: retain rejected counterexample citations through compaction.** Store bounded invariant/check identity, observed revision, trace/summary aliases and rejection reason beside the candidate.
+- **Implemented decision: retain rejected counterexample citations through compaction.** Store bounded invariant/check identity, observed revision, trace/summary aliases and rejection reason beside the candidate.
   - Keep rejection evidence after restoring source; mark it as evidence from the rejected revision. Do not replace current passing guards with that revision's results.
   - **Pros:** later diagnosis can investigate the actual rejection. **Cons:** historical artifacts can mislead or fill context; keep revision labels and bounded excerpts.
-- **Decision: request early independent review after 12 read-only rounds without a candidate.** Reuse the existing read-only reviewer; bounded trigger, shared budget/deadline, no new swarm.
+- **Implemented decision: request early independent review after 12 read-only rounds without a candidate.** Reuse the existing read-only reviewer; bounded trigger, shared budget/deadline, no new swarm.
   - **Pros:** challenges unsupported theories before the initial 55-round allowance is consumed. **Cons:** reviewer overhead/anchoring may remain; require contract citations and a concrete discriminating probe.
-- **Decision: check audited completion before a fresh restart.** First test current revision's required coverage, issue evidence and completed audit; a stale/claimed issue status cannot certify completion.
+- **Implemented decision: check audited completion before a fresh restart.** First test current revision's required coverage, issue evidence and completed audit; a stale/claimed issue status cannot certify completion.
   - **Pros:** avoids resetting a completed investigation. **Cons:** an overbroad completion flag can hide residual symptoms; final deterministic validation and explicit unresolved status remain required.
-- **Timebox/checkpoint:** about 10–15 minutes of focused implementation/review, then lead-serialized offline Docker checks and a new frozen R4 tag. These changes are **in progress/planned**, not covered by R3's 278-test evidence. Do not disturb confirmed live R3 sessions or mix their scores with R4.
-- **Current stop rule:** protect the user's 30–60-minute deadline. No major work below in this window. Keep incomplete case coverage visibly pending; complete official checks/artifacts when time permits and report exact remaining gaps.
+- **Completed offline checkpoint:** bounded implementation and independent review followed by exact-image Docker checks. R4 has its own test/image evidence; R3's 278 tests are not its certification. Preserve partial R4 results and do not mix them with R3.
+- **Stop rule applied:** user requested wrap-up. Stop safely, retain evidence and disclose gaps. No more queued cases or major work; later implementation/evaluation needs new authorization.
 
 ## Major work: future implementation decisions
 
@@ -109,11 +111,11 @@
 ## Checkpoints and empirical gates
 
 1. **C0 — proposal mapped:** this plan, local contract, current-source/evidence gaps. Proposal/research claims remain distinct from implementation proof.
-2. **C1 — minor R4 frozen:** focused/adversarial Docker checks, real host-bind rollback, truncation/complete flags, rejection citations, review trigger and audited-stop behavior; exact source/image identity. R3 evidence cannot certify R4.
-3. **C2 — bounded pilot:** inspect official per-bug seeds, gates, exit/timeout/infra, patches, final coverage, cost/time and stop reasons. Partial pilots diagnose weaknesses; they do not establish full promotion.
+2. **C1 — minor R4 frozen: complete offline.** Focused/adversarial Docker checks, real host-bind rollback, truncation/completion state, rejection citations, review trigger and audited-stop behavior; exact source/image recorded above. R3 evidence cannot certify R4.
+3. **C2 — official evaluation: partial/interrupted.** Preserve terminal per-bug seeds, gates, exit/timeout/infra, patches, coverage, cost/time and stop reasons. Missing/unlaunched cases remain missing; interrupted runs are not clean comparison evidence. No queue continuation.
 4. **C3 — future major increment:** one hypothesis, change, independent review and offline acceptance proof; preserve prior candidate. Separate diagnosis quality metrics from repaired-bug score.
 5. **C4 — full comparison:** all six cases on one exact image; every credited bug 20/20 targeted seeds, no new baseline-passing regressions, comparable bug/seed sets, clean exits/timeout/infra, internally consistent scores. Never combine R3/R4/later case scores to fabricate one candidate.
 6. **C5 — handoff:** source/Dockerfile/image identity/export, scorecards, observed gaps, explicit incomplete gates and redacted build chats with cutoff/hash manifest, all new artifacts under `solution/`. Remain on the requested branch; quality evidence does not authorize merge/push.
 
-- Freeze early enough for actual evaluation and artifacts; simulation/build duration is variable. Preserve confirmed live session handles, poll them instead of restarting on quiet output, and report unfinished checks as unfinished.
-- Keep whichever fully evaluated candidate best satisfies the user's objective. Higher test counts, more agents, more hypotheses, or longer investigation are not evidence of improved repair success.
+- For any future authorized iteration, freeze early enough for actual evaluation/artifacts; duration is variable. Preserve existing run evidence rather than restarting quiet work, and report unfinished checks as unfinished.
+- **Selection now: V1 final, 9/12.** Higher test counts, more agents, more hypotheses, or longer investigation are not evidence of improved repair success.

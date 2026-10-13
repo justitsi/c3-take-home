@@ -4,6 +4,15 @@ Owner: reliability/evaluation agent. Scope: adversarial tests and evidence revie
 runtime implementation belongs to the lead and tools agents. No paid model calls,
 Docker workloads, grading runs, or practice-case patches are made by this review.
 
+## Closeout selection
+
+**V1 remains selected: 9/12 on the complete official six-case evaluation.**
+The user requested wrap-up and no further evaluations. R4 completed B2 at 2/3
+and B3 at 1/2 with clean baseline-relative gates; together with the lead's A1
+1/1 result, that is **4/6 bugs across three completed cases**, not a full-suite
+score. A2's interrupted run is not part of this completed-case evidence; A3/B1
+were not launched. No 12/12, unseen-case success, or V2 promotion is supported.
+
 ## Authoritative constraints
 
 - Follow the local assessment `README.md` and `RULES.md` when the supplied
@@ -55,7 +64,7 @@ Docker workloads, grading runs, or practice-case patches are made by this review
 | Structured observability | Actor/tool/candidate/check identities, outcomes, timings, and source revision are correlated; logs are bounded and omit secrets | Passed in 226-test r2 offline suite |
 | Inspect generated evidence safely | Read/search generated trace and summary through contained bounded tools; reject traversal, symlink escapes, and artifact edits | Passed, including same-record terms, pagination, and complete bounded metadata transport |
 | Maintain runtime contracts | Only permitted model, no arbitrary shell tool, no practice-specific fixes, source-only mutation, deterministic service behavior | Generic runtime audit passed; generated B2 patch has public-contract risks detailed below |
-| Measure actual improvement | Frozen image, all six official cases, 20 seeds per bug, regression gates, cost/runtime, clean infrastructure, comparison against v1 | R3 B-family result 1/5 is below v1's 2/5; no full-suite improvement or promotion evidence |
+| Measure actual improvement | Frozen image, all six official cases, 20 seeds per bug, regression gates, cost/runtime, clean infrastructure, comparison against v1 | R4 B-family 3/5 improves the same-case v1 2/5, but no completed six-case comparison; V1 9/12 remains selected |
 
 ## Review limits
 
@@ -103,7 +112,7 @@ Docker workloads, grading runs, or practice-case patches are made by this review
   automatic replay/registration, tamper rejection without dropping guards,
   read-only independent review, enforced final synthesis, phase-two delivery,
   shared round ceiling, and deadline/cancellation/budget bounds.
-- `tests/test_v3_amendments.py` (r4, verification pending): bounded tool-free
+- `tests/test_v3_amendments.py` (verified in r4): bounded tool-free
   synthesis retry with explicit incomplete status, retained rejected-artifact
   provenance, early read-only handoff preserving repairs/guards, and completed
   cited audit ending without a redundant completion/restart.
@@ -400,17 +409,92 @@ one original failure. Neither introduces a baseline regression.
   and summary artifact citations. After compaction, current coverage pointed
   only to the accepted revision; B3 spent additional reads locating rejected
   evidence. Retain those exact citations rather than weakening the guard.
-- Small r4 amendments under test: retry truncated review synthesis concisely,
+- Small r4 amendments subsequently verified below: retry truncated review synthesis concisely,
   distinguish actual completed review from partial introductory text, retain
   rejected-artifact provenance, hand an initial read-only stall to independent
   review after 12 rounds, and finish a fully cited current audit without an
   extra prose-completion cycle. Investigator final synthesis is also bounded
   and explicitly handles truncation.
-- These are implementation/reliability amendments, not proven repair gains.
-  Their new independent tests are frozen but not yet reported verified here.
-  R4's separately frozen image needs its own actual full-six-case evaluation.
-  The 12/12 goal remains a target, **not a guarantee**. On the evidence above,
-  r3 must not replace the fully verified 9/12 v1 baseline.
+- These were implementation/reliability amendments, not a guarantee of repair
+  gains. The r4 partial results below supersede their pending status. The user
+  ended further evaluation before a six-case comparison; r3/r4 do not replace
+  the fully verified 9/12 v1 baseline.
+
+## Frozen r4 closeout: independent B-family audit
+
+- Source `ac409bf`; image index
+  `sha256:0c590ba5b53715f361871365a8213ec2a6689eb31a7a57e35c5905f61dda1ba4`.
+  The lead verified all ten build-context files match and **287 tests pass in
+  31.00 seconds**, including the real host-bind recovery and nine new amendment
+  cases. No runtime changed during these evaluations.
+- Evidence: `results/v2-r4-cases/{B2-session/B2,B3-session/B3}/` and final
+  reports in `results/.scratch/c3grade-B2-r1-6wc6f5a9/workspace/` and
+  `results/.scratch/c3grade-B3-r1-8688g8au/workspace/`.
+
+| Case | Credited bugs | Bug-seed outcomes | Fixer wall time | Cost | Gates |
+| --- | --- | --- | --- | --- | --- |
+| B2 | 2/3 | 20/20, 0/20, 20/20 | 695.563 s | $3.397598 | 29 public + 40 regressions pass |
+| B3 | 1/2 | 0/20, 20/20 | 746.550 s | $4.526352 | 29 public + 39 regressions pass; one original failure |
+| B-family | 3/5 | 60/100 checked seeds clean | 1,442.113 s summed fixer time | $7.923950 | Both baseline-relative gates pass |
+
+- Independently audited all **100 bug-seed pairs / 200 replay summaries**:
+  exactly two runs each, valid non-null 64-hex trace hashes, identical hashes
+  within every pair, and no replay error. All credited bugs pass 20/20 checked
+  first runs. Both fixers exit 0, with no timeout, infrastructure error or new
+  baseline regression. Separate-session summed fixer time is not elapsed time.
+- B2 stops at 51 editor rounds with three retained candidates, zero diagnosis
+  restarts and three compactions. Final coverage is complete/all-passed over
+  **11 public-template seeds**: 1, 3, 5, 6, 7, 42, 99, 108, 200, 218, 333.
+  Five ledger entries claim resolution with citations at revision 3. The
+  official 0/20 bug-2 result nevertheless disproves that issue's repair claim;
+  status `public-verified` remains explicitly public-scope certification.
+- B3 stops at the 80-round safety ceiling, with one accepted candidate and
+  four rejected candidates, one diagnosis restart and five compactions. Final
+  coverage is complete but all five public seeds retain the registration
+  expectation. The two ledger entries remain `candidate`; final status
+  `partial-known-failures` is accurate. Rejected changes are absent from the
+  submitted source.
+- The small amendments are actually exercised: B2's sixth specialist
+  synthesis truncates, its single seventh tool-free retry completes, and all
+  investigators finish. Both initial editors hand off after 12 read-only
+  rounds without a candidate (global rounds 23 and 30), preserving accepted
+  repairs. Both contract reviews complete genuinely, at 6,232 and 7,461
+  characters. B2 finishes the cited audit without a redundant restart.
+- Rejected provenance is used, not merely exposed: 57 B3 trace reads match
+  eight recorded rejected-candidate artifact paths, including reads after
+  compaction. This improves evidence availability without weakening guards.
+- **No authored scenario is attempted in either B run.** All B2 additional
+  probes are new seeds on the public template; B3 uses declared public seeds.
+  Scenario-authoring unit tests therefore establish an interface/safety
+  contract, not measured use or coverage of the residual symptoms.
+
+### Remaining source and reasoning gaps
+
+- B2 still uses the worker's acknowledged heartbeat counter and coordinator
+  `max(seen, reply)` rather than the last-sent/reply-as-is protocol specified
+  by `runbooks/lost-tasks.md`. The official forbidden-cancellation bug remains
+  0/20 despite 11 clean public seeds. Its independent review incorrectly
+  endorses the incomplete ordering repair.
+- B2 still refreshes liveness on strictly older heartbeat sequences, broader
+  than the public not-older requirement. Its GPU retry now resubmits the same
+  operation id after `NOT_FOUND`, but omits the documented 0.1-second backoff.
+  These are public-contract risks/gaps, not newly observed grader failures.
+  R4 does **not** introduce r2's unsafe UNKNOWN-to-None cancellation shortcut.
+- B3 correctly removes the cross-node heartbeat-age comparison and unused
+  `sent` payload field. Its reviewer wrongly claims removing `sent` exposes
+  stale-epoch re-registration: `is_current` rejects an old epoch **before** the
+  original timestamp filter, so that filter could never suppress that branch.
+  Completed review text is not proof of a supported causal explanation. The
+  remaining registration bug still fails all 20 official seeds; a coherent
+  dependency repair was not found within the resource limits.
+- Aggregate passing public seeds and model issue claims cannot replace a
+  distinguishing public-contract counterexample for each symptom. Longer
+  transcripts, extra tools, or a completed reviewer reply do not by themselves
+  prove better repair. Preserve these gaps for future planning; do not inject
+  human practice patches or claim a full-suite result from this partial run.
+- **Final decision:** preserve the V2 experiments and evidence; select the
+  already fully validated V1 9/12. No further features/evaluations are started
+  for this wrap-up, and no V2 merge/push is authorized by this review.
 
 ## Findings and dispositions
 

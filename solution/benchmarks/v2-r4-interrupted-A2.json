@@ -1,0 +1,57 @@
+{
+  "interrupted": true,
+  "interruption_reason": "User requested wrap-up; root sent SIGTERM to the A2 fixer. Existing official grader completed on the retained source snapshot.",
+  "evidence_scope": "Valid official snapshot score, not an uninterrupted controller run; excluded from v2-r4-partial.json and any complete-candidate claim.",
+  "bugs_fixed": 2,
+  "bugs_total": 2,
+  "cases": {
+    "A2": {
+      "bugs": [
+        {
+          "fixed": true,
+          "id": "bug-1",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        },
+        {
+          "fixed": true,
+          "id": "bug-2",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 2,
+      "cached_input_tokens": 685590,
+      "case": "A2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 907657,
+      "output_tokens": 8651,
+      "patch_files": [
+        "src/jobrouter/executor.py",
+        "src/jobrouter/releaser.py"
+      ],
+      "patch_sha256": "9a2d999571c58f4bdd8bafbf8232e7d6868884f5d15c58e428b87de863cbbd1b",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r4-cases/A2-session/A2/result.json",
+      "spend_usd": 1.16816,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 146.047
+    }
+  },
+  "complete": false,
+  "fixer_wall_s": 146.047,
+  "image": "c3-fixer-prototype:v2-r4",
+  "image_id": "sha256:0c590ba5b53715f361871365a8213ec2a6689eb31a7a57e35c5905f61dda1ba4",
+  "infrastructure_errors": [],
+  "missing_cases": [
+    "A1",
+    "A3",
+    "B1",
+    "B2",
+    "B3"
+  ],
+  "source_ref": "ac409bf",
+  "spend_usd": 1.16816
+}

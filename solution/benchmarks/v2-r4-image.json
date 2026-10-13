@@ -3,6 +3,7 @@
   "branch": "solution/prototype-v2",
   "base_commit": "96e06b2",
   "previous_candidate_source": "2096b49",
+  "runtime_source_ref": "ac409bf",
   "image": "c3-fixer-prototype:v2-r4",
   "image_identity": "sha256:0c590ba5b53715f361871365a8213ec2a6689eb31a7a57e35c5905f61dda1ba4",
   "architecture": "amd64",
@@ -31,6 +32,8 @@
     "validation.py": "2f707da061d52723e7a81fb47b59d13f9d24385479ce13d04808f2753ceef609",
     "run.sh": "5c097b8ed8c2808ac0d1c25ab9a454bf269f102a0d71c70c237caa95ef97b188"
   },
-  "official_repair_evaluation": "pending; offline tests do not establish bug repair effectiveness",
-  "case_schedule": "all six cases in separate per-case sessions; at most three concurrent; one grading worker each; Docker VM unchanged at1973MiB/4CPUs"
+  "official_repair_evaluation": "user-requested wrap-up: uninterrupted A1/B2/B3 partial 4/6; A2 interrupted; A3/B1 not run; no complete six-case score or promotion",
+  "image_export": "solution/results/v2-r4-candidate.tar",
+  "image_export_sha256": "3ba75d225f505a5755a9723c9f6d943d349310c6c044aceae3f20be11ed0df68",
+  "case_schedule": "separate per-case sessions, at most three concurrent/one grading worker each; Docker VM unchanged at1973MiB/4CPUs; queue cancelled at user wrap-up"
 }
