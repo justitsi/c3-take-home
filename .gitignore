@@ -8,3 +8,8 @@ __pycache__/
 *.pyc
 grader/.cache/
 proxy/.state/
+
+# Track the selected Docker image, not generated upload bundles.
+solution/upload/*
+!solution/upload/prototype-v1-final.tar
+!solution/upload/prototype-v1-final.tar.sha256

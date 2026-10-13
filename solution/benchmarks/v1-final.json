@@ -5,7 +5,7 @@
   "image_id": "sha256:38219577c596f30f84ebdc58bf1ec8b27f941545a61a86fcd78e2b6b94f3c6b3",
   "platform": "linux/amd64",
   "docker_inspect_size_bytes": 47626053,
-  "image_tarball": "results/prototype-v1-final.tar",
+  "image_tarball": "solution/upload/prototype-v1-final.tar",
   "image_tarball_sha256": "243752078a470551b2fb7f669ceb31731f1adf472df7ec2ccd8a24052da4a11d",
   "runtime_source_ref": "70878af",
   "unit_tests": {"passed": 62, "failed": 0, "wall_s": 23.51, "harness_checks": 45, "chat_export_checks": 17, "environment": "Docker; Python 3.12; network none"},

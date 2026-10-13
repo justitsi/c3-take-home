@@ -14,6 +14,8 @@ Offline suite: **62 tests passed**. Unseen-service performance is unknown.
 Case scores: A1 1/1; A2 2/2; A3 3/3; B1 1/1; B2 1/3; B3 1/2.
 See the [scorecard](benchmarks/v1-final-evaluation.json) and
 [image/hash record](benchmarks/v1-final.json).
+The [Docker image tar](upload/prototype-v1-final.tar) and
+[SHA-256 checksum](upload/prototype-v1-final.tar.sha256) are tracked in this repo.
 
 ## How it works
 
@@ -35,7 +37,7 @@ practice-specific repairs or cross-case state.
 From the repository root, load the preserved graded image and run offline tests:
 
 ```sh
-docker load -i results/prototype-v1-final.tar
+docker load -i solution/upload/prototype-v1-final.tar
 
 docker run --rm --platform linux/amd64 --network none \
   --mount "type=bind,source=$PWD/solution,target=/solution,readonly" \
