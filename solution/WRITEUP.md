@@ -14,18 +14,20 @@ reserve, SIGTERM handling, and an `exec` entry point support the grader's deadli
 contract. Dependencies are installed at build time. Cases share no runtime
 state; the image contains no practice-specific patches or grading data.
 
-Main's no-op baseline fixed 0/12 bugs after a successful serial B2 retry. The
-immutable `c3-fixer-prototype:v1` pilot fixed 2/2 bugs across A1 and B1, passed
-their public/private regression checks, and spent $1.649673. The finalized
-`c3-fixer-prototype:v1-final` image contains later safety hardening and has a
-different image identity. That changed source has not had another paid model
-evaluation; the pilot score does not establish its six-case score or merge gate.
-Local benchmarks run one case and one evaluation worker at a time within the
-requested approximately 2 GB Docker VM, while model investigation stays parallel.
+The frozen `c3-fixer-prototype:v1-final` image fixed 9/12 practice bugs: A1 1/1,
+A2 2/2, A3 3/3, B1 1/1, B2 1/3, B3 1/2. Each credited bug passed all 20 hidden
+practice seeds. All baseline-relative test/regression gates passed, with no
+timeout or infrastructure error. Cost was $5.850678 and total fixer runtime
+991.65 seconds; 84.4% of input tokens were cached. This exceeds original main's
+no-op baseline of 0/12 and satisfies the conditional integration gate. Cases
+and evaluation workers ran serially on the unchanged approximately 2 GB Docker
+VM; model investigation remained parallel. The offline suite passed 62 checks.
 
-Version 1 is frozen on its development branch under human supervision; further
-paid evaluation is deferred. `STATUS.md` records evidence and artifact identity.
-Next work should evaluate all six cases on one frozen image, then improve
-retrieval, investigation efficiency, and seed/fault coverage from observed
-failures. Promotion requires a measured improvement over main on the complete
-comparison. Preserve development chats for the eventual submission.
+Three misses remain, so this is not an all-bugs claim. Next, expose bounded
+access to generated traces: current inspection tools cannot read scratch
+artifacts. Replace the fixed editor-round stop with a time/budget-aware repair
+allowance, preserving rollback; B3 correctly rejected a new invariant failure
+but had no rounds left to repair dependencies. Retain additional passing seeds
+as regression guards and improve final seed/fault coverage. The image tarball,
+source/Dockerfile, redacted public build chats from all four agents, and measured
+scorecards are preserved locally. Unseen-codebase performance remains unknown.

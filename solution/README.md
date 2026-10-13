@@ -19,14 +19,36 @@ Version 1 is finalized as `c3-fixer-prototype:v1-final`. Evidence and limits:
   A1 and B1**, spending **$1.649673**. Both cases passed public and private
   regression checks; raw evidence is in `results/prototype-v1-pilot/`.
 - `v1-final` contains later safety hardening and has a separate image identity
-  from that pilot. Its changed source has **not been reevaluated with paid
-  model calls**. There is no final six-case score and the merge condition has
-  not been demonstrated. Remaining case coverage is work for the next version.
-- Final offline Docker safety suite: **45 passed**. Image runtime source was
+  from that pilot. Its own serial six-case evaluation fixed **9/12 bugs** for
+  **$5.850678**, with **991.65 seconds** total fixer runtime. All public and
+  baseline-relative private regression gates passed; no timeout or
+  infrastructure error occurred. The frozen runtime source is `70878af`.
+- Final offline Docker suite: **62 passed** (45 harness reliability checks and
+  17 build-chat export checks). Image runtime source was
   checked byte-for-byte against the source saved on `solution/prototype-v1`.
   Evidence summaries are in [benchmarks/](benchmarks/); the local handoff image
   is [results/prototype-v1-final.tar](../results/prototype-v1-final.tar), with
   its SHA-256 recorded in [v1-final.json](benchmarks/v1-final.json).
+
+| Case | Bugs fixed | Fixer seconds | Model spend |
+| --- | ---: | ---: | ---: |
+| A1 | 1/1 | 240.468 | $1.019304 |
+| A2 | 2/2 | 147.465 | $0.909654 |
+| A3 | 3/3 | 170.479 | $1.071437 |
+| B1 | 1/1 | 129.516 | $0.917818 |
+| B2 | 1/3 | 133.766 | $1.000571 |
+| B3 | 1/2 | 169.956 | $0.931894 |
+
+Every credited bug passed all 20 hidden practice seeds. Independent review also
+verified identical repeated traces for all 240 bug–seed pairs. B2 and B3 retain
+original regression failures associated with unfixed bugs; neither introduced
+baseline-passing test failures. This is **not** an all-bugs or unseen-case claim.
+The [complete scorecard](benchmarks/v1-final-evaluation.json) and
+[promotion gate](benchmarks/v1-promotion.json) preserve the measured comparison:
+**9/12 versus main's 0/12**, using the same cases and seed coverage.
+The plan's [one-shot LLM reference](benchmarks/minimal-reference-A2.json) was
+also measured on A2 only: **0/2**, $0.198605, with a new regression; v1 scored
+2/2 without new regressions on that case. It is not a complete-suite baseline.
 
 ## How it works
 
@@ -145,6 +167,8 @@ The required image is `linux/amd64` and must be no larger than 4 GB. The image
 has Python 3.12, PyYAML, pytest, and a no-argument entry point. Building the image
 does not contact a model. Unit tests exercise the controller with fake model
 responses; they do not establish a real repair score.
+The frozen Dockerfile retains its historical example-tag comment so the source
+build context matches the measured image exactly; use the `v1-final` tag above.
 
 ## Run the provided practice cases
 
@@ -227,8 +251,8 @@ score. The fully containerized runner above checks the real proxy explicitly.
 
 ## Iterative development and branch gate
 
-The following gate applies to future promotion. Finalizing this v1 snapshot
-does not imply that its hardened image has passed the complete comparison.
+The v1 candidate has passed this gate: its complete frozen-image score is 9/12
+against the original main baseline of 0/12. Apply the same gate to later versions.
 
 1. Establish main's baseline and save its score artifacts.
 2. Build one runnable prototype, run controller checks in Docker, then grade one
@@ -256,6 +280,21 @@ large generated result trees, and model ledgers do not belong in commits.
 - `PLAN.md`: supervised, iterative development plan and milestone gates.
 - `STATUS.md`: measured checkpoints, score comparison, and open limitations.
 - `WRITEUP.md`: short architecture and next-steps explanation for handoff.
+- `benchmarks/`: sanitized official scorecards, frozen image metadata, and
+  the machine-checked promotion decision; raw grading artifacts stay in `results/`.
+- `export_build_chats.py`: development-only, credential-redacting export of the
+  four actual build sessions. The exported [role manifest](../evidence/build-chats/manifest.json)
+  and public message/tool transcripts live in ignored `evidence/build-chats/`.
+  Analysis, system/developer context, and inherited parent history are excluded;
+  source snapshots and exports have SHA-256 hashes. No credential file is read.
+
+Observed v2 priorities: expose bounded read-only access to generated scratch
+traces/summaries; allow further evidenced repair after the fixed editor cap;
+retain extra passing seeds as regression guards and add final coverage checks.
+B2's two misses involve cancellation and liveness; B3's miss involves excessive
+registration. Keep rollback and new-invariant protection: B3 safely rejected a
+candidate that introduced an unresolved-job violation. Improve the diagnosis
+loop rather than removing that guard.
 
 Practice results guide the next iteration; unseen hidden codebases remain the
 target. Favor general contract retrieval, evidence-driven repairs, deadline
