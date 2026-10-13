@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import difflib
 import fnmatch
 import json
 import os
@@ -13,11 +14,21 @@ import threading
 
 if __package__:
     from .artifacts import inspect_jsonl
+    from .probe_authoring import author_probe
 else:
     from artifacts import inspect_jsonl
+    from probe_authoring import author_probe
 
 
 READ_TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "source_diff",
+            "description": "Review a bounded unified diff of the trusted original service src/ checkpoint versus current source. Takes no paths; no test, scenario, or simulator edits are included. Use it to audit unintended side effects across all retained repairs.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -92,6 +103,25 @@ READ_TOOL_SCHEMAS = [
     },
 ]
 
+PROBE_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "create_probe",
+        "description": "Author a bounded, write-once scenario derived from a supplied base. Mappings merge recursively; lists/scalars replace. Do not modify provided scenarios. Use a small workload targeting a cited contract concern, with optional supplied fault file. Only base node classes are allowed. Limits: 32 nodes, 500 expanded actions, end_at<=600, 64KiB. The controller replays this probe; creation alone is not evidence of correctness.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "base_scenario": {"type": "string", "default": "public"},
+                "overrides": {"type": "object"},
+                "faults": {"type": "string"},
+                "name": {"type": "string", "maxLength": 64},
+                "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+            },
+            "required": ["overrides"], "additionalProperties": False,
+        },
+    },
+}
+
 EDIT_TOOL_SCHEMA = {
     "type": "function",
     "function": {
@@ -131,6 +161,8 @@ class Tools:
         self.artifacts_root = self.scratch / "artifacts"
         self._write_lock = threading.Lock()
         self.stop: threading.Event | None = None
+        self.authored_probes: dict[str, dict] = {}
+        self.original_source: Path | None = None
 
     def _check_cancelled(self) -> None:
         if self.stop is not None and self.stop.is_set():
@@ -296,6 +328,91 @@ class Tools:
     def apply_edits(self, edits: list[dict]) -> dict:
         with self._write_lock:
             return self._apply_edits(edits)
+
+    def create_probe(self, base_scenario="public", overrides=None, faults=None, name=None, seed=None) -> dict:
+        with self._write_lock:
+            return author_probe(self.workspace, self.artifacts_root, self.authored_probes,
+                                base_scenario=base_scenario, overrides=overrides, faults=faults,
+                                name=name, seed=seed, stop=self.stop)
+
+    def source_diff(self) -> dict:
+        """No model-selected checkpoint path; root assigns original_source once."""
+        try:
+            if self.original_source is None:
+                raise ValueError("trusted original source checkpoint is unavailable")
+            original, current = Path(self.original_source), self.workspace / "src"
+            if any(root.is_symlink() or not root.is_dir() for root in (original, current)):
+                raise ValueError("source diff requires real source directories")
+            trees = []
+            for root in (original, current):
+                files = {}
+                for path in sorted(root.rglob("*")):
+                    self._check_cancelled()
+                    relative = path.relative_to(root)
+                    if any(part.startswith(".") or part == "__pycache__" for part in relative.parts):
+                        continue
+                    if path.is_symlink():
+                        raise ValueError("source diff refuses symlink files/directories")
+                    if path.is_file() and path.suffix not in {".pyc", ".pyo"}:
+                        files[relative.as_posix()] = path
+                    if len(files) > 500:
+                        raise ValueError("source diff exceeds 500-file bound")
+                trees.append(files)
+            result = {"ok": True, "diff": "", "changed_files": [], "compared_files": 0, "truncated": False}
+            total_bytes = 0
+            for name in sorted(trees[0].keys() | trees[1].keys()):
+                self._check_cancelled()
+                contents = []
+                for tree in trees:
+                    if name not in tree:
+                        contents.append(b"")
+                        continue
+                    with tree[name].open("rb") as handle:
+                        content = handle.read(262145)
+                    total_bytes += len(content)
+                    if len(content) > 262144 or total_bytes > 4_000_000:
+                        raise ValueError("source diff exceeds bounded source bytes; inspect a file directly")
+                    contents.append(content)
+                result["compared_files"] += 1
+                if contents[0] == contents[1] and (name in trees[0]) == (name in trees[1]):
+                    continue
+                proposed_files = result["changed_files"] + ["src/" + name]
+                if len(json.dumps({**result, "changed_files": proposed_files}, ensure_ascii=False)) > 17000:
+                    result["truncated"] = True
+                    break
+                result["changed_files"] = proposed_files
+                try:
+                    before, after = (content.decode("utf-8").splitlines(keepends=True) for content in contents)
+                except UnicodeDecodeError:
+                    line = f"[binary source changed: src/{name}]\n"
+                    if len(json.dumps(result, ensure_ascii=False)) + len(json.dumps(line)) > 17800:
+                        result["truncated"] = True
+                        break
+                    result["diff"] += line
+                    continue
+                if max(len(before), len(after)) > 8000:
+                    raise ValueError("source diff exceeds bounded source lines")
+                diff = difflib.unified_diff(before, after,
+                    fromfile="original/src/" + name if name in trees[0] else "/dev/null",
+                    tofile="current/src/" + name if name in trees[1] else "/dev/null")
+                any_lines = False
+                for line in diff:
+                    any_lines = True
+                    if len(json.dumps(result, ensure_ascii=False)) + len(json.dumps(line, ensure_ascii=False)) > 17800:
+                        result["truncated"] = True
+                        break
+                    result["diff"] += line
+                if not any_lines:
+                    line = f"[empty file {'added' if name not in trees[0] else 'removed'}: src/{name}]\n"
+                    if len(json.dumps(result, ensure_ascii=False)) + len(json.dumps(line)) > 17800:
+                        result["truncated"] = True
+                        break
+                    result["diff"] += line
+                if result["truncated"]:
+                    break
+            return result
+        except (OSError, TypeError, ValueError) as error:
+            return {"ok": False, "error": str(error)}
 
     def inspect_trace(self, path: str, query=None, center_t=None, window_s=2.0, limit=30,
                       all_terms=None, start_line=1) -> dict:

@@ -1,302 +1,232 @@
-# C3 parallel repair prototype v1
+# C3 repair prototype V2
 
-This directory contains the first implementation of the assessment plan: a
-Docker-packaged, autonomous repair harness for unfamiliar Python services. The
-development process uses AI agents under human supervision; each graded run
-operates without human input. This is a prototype to measure and improve, not a
-claim of a final submission score.
+This branch develops an autonomous Docker fixer with AI-assisted implementation
+under human supervision. Graded runs remain hands-off. The active branch is
+`solution/prototype-v2`, based on finalized V1 `96e06b2`. **Do not merge or push
+V2 without a new user request.**
 
-Read the repository's [assessment brief](../README.md) and [rules](../RULES.md)
-for the authoritative contract. [PLAN.md](PLAN.md) describes the development
-milestones. [STATUS.md](STATUS.md) records checkpoints, validation evidence,
-practice scores, and remaining work.
+The repository [assessment brief](../README.md) and [rules](../RULES.md) are
+authoritative. [V2_PLAN.md](V2_PLAN.md) defines the iteration gates;
+[STATUS.md](STATUS.md) and [V2_REVIEW.md](V2_REVIEW.md) record evidence and review.
 
-Version 1 is finalized as `c3-fixer-prototype:v1-final`. Evidence and limits:
+## Current checkpoints
 
-- Main's no-op baseline fixed **0/12 bugs across all six cases**. An initial B2
-  infrastructure failure was resolved by a serial, single-worker retry.
-- The immutable pilot image `c3-fixer-prototype:v1` repaired **2/2 bugs across
-  A1 and B1**, spending **$1.649673**. Both cases passed public and private
-  regression checks; raw evidence is in `results/prototype-v1-pilot/`.
-- `v1-final` contains later safety hardening and has a separate image identity
-  from that pilot. Its own serial six-case evaluation fixed **9/12 bugs** for
-  **$5.850678**, with **991.65 seconds** total fixer runtime. All public and
-  baseline-relative private regression gates passed; no timeout or
-  infrastructure error occurred. The frozen runtime source is `70878af`.
-- Final offline Docker suite: **62 passed** (45 harness reliability checks and
-  17 build-chat export checks). Image runtime source was
-  checked byte-for-byte against the source saved on `solution/prototype-v1`.
-  Evidence summaries are in [benchmarks/](benchmarks/); the local handoff image
-  is [results/prototype-v1-final.tar](../results/prototype-v1-final.tar), with
-  its SHA-256 recorded in [v1-final.json](benchmarks/v1-final.json).
+| Checkpoint | Official practice evidence | Meaning |
+| --- | --- | --- |
+| Preserved V1 final | **9/12**, all six cases; **$5.850678**, **991.65 s** fixer time | Current complete comparison baseline |
+| V2-r1 | **1/5** on B2/B3; **$6.061312**, **876.019 s** | Setback: V1 fixed **2/5** on those same cases |
+| V2-r2 | **Repair score pending**; B2/B3 serial pilot in progress | Implemented and tested controller, unproven repair effectiveness |
 
-| Case | Bugs fixed | Fixer seconds | Model spend |
-| --- | ---: | ---: | ---: |
-| A1 | 1/1 | 240.468 | $1.019304 |
-| A2 | 2/2 | 147.465 | $0.909654 |
-| A3 | 3/3 | 170.479 | $1.071437 |
-| B1 | 1/1 | 129.516 | $0.917818 |
-| B2 | 1/3 | 133.766 | $1.000571 |
-| B3 | 1/2 | 169.956 | $0.931894 |
+[V1's scorecard](benchmarks/v1-final-evaluation.json) remains intact: A1 1/1,
+A2 2/2, A3 3/3, B1 1/1, B2 1/3, B3 1/2. Every credited bug passed all 20 hidden
+practice seeds, with public and baseline-relative regression gates passing.
+Its separate image is `c3-fixer-prototype:v1-final`. Historical
+[no-op](benchmarks/main-baseline.json), [V1 pilot](benchmarks/v1-pilot.json), and
+[one-shot A2 reference](benchmarks/minimal-reference-A2.json) evidence is retained;
+those runs are not substitutes for the current V1 comparison.
 
-Every credited bug passed all 20 hidden practice seeds. Independent review also
-verified identical repeated traces for all 240 bug–seed pairs. B2 and B3 retain
-original regression failures associated with unfixed bugs; neither introduced
-baseline-passing test failures. This is **not** an all-bugs or unseen-case claim.
-The [complete scorecard](benchmarks/v1-final-evaluation.json) and
-[promotion gate](benchmarks/v1-promotion.json) preserve the measured comparison:
-**9/12 versus main's 0/12**, using the same cases and seed coverage.
-The plan's [one-shot LLM reference](benchmarks/minimal-reference-A2.json) was
-also measured on A2 only: **0/2**, $0.198605, with a new regression; v1 scored
-2/2 without new regressions on that case. It is not a complete-suite baseline.
+The [R1 pilot](benchmarks/v2-r1-pilot.json) scored B2 0/3 and B3 1/2, with no new
+baseline-passing regressions, timeout, or infrastructure failure. Both cases
+exhausted the 80-round ceiling; repeated investigation and resets did not
+produce enough repairs. Additional controller features alone did not improve
+the measured result.
 
-## How it works
+The current frozen candidate is `c3-fixer-prototype:v2-r2`, source `11aae52`.
+[Image/test evidence](benchmarks/v2-r2-image.json) records `linux/amd64`,
+47,638,807 bytes, all nine build-context files matching the image, and
+**226 offline Docker tests passed in 30.92 seconds**. Its recorded image identity
+is `sha256:13ef71ea43ffb4005fc0b7015bbe778c062c6b94e3e46d640d79009a3ae2c7ba`.
+Offline tests verify controller behavior; they do not establish a repair score.
+R2 has no completed six-case comparison or demonstrated improvement yet.
 
-- A Python controller reads the ticket, case metadata, invariants, source
-  layout, logs, and the corpus index. Paths come from the grader's environment.
-- Several Sonnet 4.6 specialist agents investigate different distributed
-  failure classes in parallel. Their tools inspect files, search documentation,
-  and gather evidence; they cannot edit service files.
-- The controller combines their findings for a repair agent. Source edits and
-  validation are serialized so investigators cannot race to overwrite a patch.
-- The repair agent makes small edits, runs public tests and deterministic
-  replay/check commands, and uses the feedback to investigate remaining bugs.
-  Passing unit tests alone do not prove a bug is fixed: the original tests
-  already pass before repair.
-- Validation retains source checkpoints and restores a validated version when
-  a candidate breaks passing checks. Accepted changes remain available if a
-  later investigation runs out of time or model budget.
-- Each case starts fresh. The image contains the harness, not practice-case
-  repairs, expected answers, hidden grading data, credentials, or prior runs.
+## How the current harness works
+
+1. **Reproduce and retrieve.** Read the ticket, invariants, source layout, logs,
+   case metadata, and corpus index. Run syntax/public tests and every declared
+   public seed. Retrieve bounded source and contract excerpts instead of loading
+   the approximately 26M-token corpus.
+2. **Investigate in parallel.** Three read-only Sonnet 4.6 specialists cover
+   `state-recovery`, `leases-membership`, and `delivery-commit`. Each has at most
+   six model calls; the sixth is tool-free so it can summarize the strongest
+   evidence. They cannot modify source.
+3. **Inspect generated evidence.** Read/search/list tools expose a contained,
+   read-only `artifacts/` namespace for simulator traces and summaries.
+   `inspect_trace` supports one literal `query`, same-record AND via
+   `all_terms`, optional time windows, and resumable `start_line`/`next_line`
+   pages. It reports line numbers, returned time ranges, truncation, malformed
+   rows, and scan limits. Empty or clipped output is not proof that no event
+   occurred.
+4. **Retain facts and issue state.** A bounded observation ledger keeps cited
+   tool results, unsuccessful queries, and source revisions. A per-symptom
+   `update_issues` ledger records hypotheses, citations, next steps, and
+   verification plans. Old source excerpts are marked historical.
+   `claimed-resolved` is a model claim, never hidden-bug certification.
+5. **Repair iteratively.** One integrating editor makes small, serialized
+   candidates. Context compaction preserves cited observations and recorded
+   issue hypotheses. A separate fresh diagnosis drops prior hypotheses while
+   keeping factual evidence and the latest validated source. Repeated empty
+   reads do not count as useful progress. Stagnation, budget, deadline, and
+   completion checks control continuation; **80 rounds is an emergency ceiling,
+   replacing V1's 14-round cap**, not a requirement to spend all 80.
+6. **Validate and checkpoint.** Candidate checks cover public tests, every
+   declared public seed, and registered `(seed, scenario, faults)` probes.
+   Preserve previously passing checks, reject newly introduced invariant
+   categories, and require complete execution plus a repeated-trace determinism
+   check before retaining a candidate. Roll back rejected or interrupted edits.
+   Related prerequisite repairs can form one coherent candidate; original
+   unrelated failures may remain after a partial repair.
+7. **Finish with evidence.** Run automatic final validation over the required
+   public/probe registry and restore a supported checkpoint after demonstrated
+   regressions. Reports distinguish verified public coverage, known remaining
+   failures, and incomplete validation. Public coverage does not certify hidden
+   bug scenarios.
+
+For example, a trace request can combine an entity and event in separate JSON
+fields:
+
+```json
+{"path":"artifacts/replay-example/trace.jsonl",
+ "all_terms":["job-17","rpc"],"start_line":1,"limit":30}
+```
+
+Use a real returned artifact path. If `next_line` is returned, keep the filters
+and request that next page. The inspector returns at most 100 events/18,000
+characters and scans at most 64 MiB, including skipped prefix lines; oversized
+or malformed evidence is explicitly partial.
 
 The model client uses standard-library HTTP and the supplied proxy. Runtime
-calls use only the permitted Sonnet model. Jev is an optional future experiment,
-not a dependency of this prototype. Local tools perform retrieval and simulator
-commands; no provider web search or server-side tools are needed.
+uses only permitted Sonnet 4.6; Jev is deferred. Local tools provide retrieval
+and validation. No practice-specific patches, grader data, credentials, or
+cross-case state are embedded in the fixer image. Only case `src/` edits count.
 
-The initial specialist profiles and controller limits are constants in
-`fixer/fix.py`; request handling and budget accounting live in `fixer/model.py`:
+## Time, spend, and shutdown
 
-- `state-recovery`: durability, restart/cancellation, capacity accounting,
-  release, and idempotency.
-- `leases-membership`: fencing, worker incarnations, heartbeat ordering, clock
-  drift, and pauses.
-- `delivery-commit`: ambiguous RPC outcomes, retry/backoff, acknowledgments, and
-  speculative commit races.
-- Each investigator has at most six model calls with `max_tokens=1800`; the
-  integrating editor has at most fourteen rounds with `max_tokens=3800`.
-  These are ceilings, not allocations that must be exhausted.
-- One shared `Budget` reserves a conservative estimate before each concurrent
-  request, then settles against reported usage/cost. Missing or uncertain usage
-  is charged conservatively internally; the supplied proxy enforces the actual
-  spend limit. Internal estimates and the grader's measured spending are
-  distinct.
-- Investigation reservations are capped at 45% of the shared case budget.
-  Investigation also ends at 35% of the initial usable time after subtracting
-  the shutdown reserve. This preserves allowance for the integrating editor.
-- Initial validation runs syntax checks, public tests, and up to two public seeds.
-  Each candidate checks public tests and up to two public seeds, repeating the
-  first replay for trace-hash determinism when enough time remains. It protects
-  previously passing seeds and rejects newly appearing invariant categories
-  relative to each seed's retained result. Original invariant failures can
-  remain after a partial repair; related prerequisite repairs may need one
-  coherent candidate. This limited public validation does not replace the
-  official 20-seed, per-bug grader.
+- Read `C3_WORKSPACE`, `C3_CORPUS`, `C3_DEADLINE`, `C3_BUDGET_USD`, and proxy
+  settings. Actual supplied limits take precedence over defaults.
+- Assessment maximum: 900 seconds, $3 **per bug**, 2 CPUs, and 4 GB per fixer.
+  Keep the existing approximately 2 GB local Docker VM unchanged. Run cases
+  serially with one evaluation worker; model investigators remain parallel.
+- Share conservative request reservations across all agents. Investigation is
+  capped at 45% of case budget and 35% of initial usable time. Investigator/editor
+  output limits are 1,800/3,800 tokens per call.
+- Reserve 75 seconds under the normal allowance; shorter runs use 10% of initial
+  remaining time, bounded between 5 and 75 seconds. Bound HTTP/tools and stop
+  new edits while enough allowance remains for validation.
+- Reject truncated or malformed model replies before executing partial tools.
+  The editor retries transient transport/rate-limit failures within bounded attempts
+  and remaining allowance; permanent rejection or exhaustion preserves source.
+- Use targeted excerpts, stable cached prefixes, concise observations, and
+  context compaction to reduce repeated input. Validation and relevant
+  contract retrieval remain mandatory.
+- The entry point uses `exec` so signals reach Python directly. SIGTERM requests
+  shutdown; a watchdog cancels work and restores valid source, with bounded
+  fallback cleanup. The external grader sends SIGTERM at the deadline and
+  SIGKILL five seconds later. Exit when useful work is finished rather than
+  sleeping to fill the allowance.
 
-## Runtime limits and shutdown
+## Build and run in Docker
 
-The grader provides `C3_WORKSPACE`, `C3_CORPUS`, `C3_DEADLINE`,
-`C3_BUDGET_USD`, and per-case proxy settings. The normal maximum is 900 seconds,
-2 CPUs, 4 GB RAM, and $3 of model budget per bug. The actual deadline and budget
-are authoritative; the harness must not assume that every run receives a full
-15 minutes or a fixed dollar allocation.
-
-The controller shares its time and spending limits across all agents, bounds
-tool and HTTP work, and reserves 75 seconds for final validation/rollback under
-the normal allowance. For shorter runs, the reserve is 10% of the initial
-remaining time, bounded between 5 and 75 seconds. It exits
-when work is complete or the remaining limits cannot support useful work; it
-does not sleep to fill the allowance. The shell entry point uses `exec`, allowing
-SIGTERM to reach Python directly. The external grader sends SIGTERM at the
-deadline and SIGKILL five seconds later. Checkpointed, valid `src/` is therefore
-the output that matters, including during interruption.
-
-Only edits inside the case's `src/` count. Tests, simulator, scenarios, corpus,
-and grader are evidence, not repair targets. Official grading checks each bug
-against 20 hidden seeds and can zero a case if a patch breaks baseline-passing
-public or private regression tests.
-
-## Token and cost discipline
-
-- Search before reading: bounded, line-numbered excerpts from source and corpus
-  replace full-file or full-corpus prompts.
-- Give specialists distinct responsibilities and a compact shared case summary
-  to reduce duplicate investigation.
-- Bound agent rounds and generated output; retain concise findings with file
-  references instead of repeatedly copying raw logs.
-- Keep repeated prompt prefixes stable for the proxy's automatic prompt cache.
-- Reserve budget across concurrent requests; treat HTTP 402 as exhaustion and
-  preserve the last validated source rather than retrying indefinitely.
-
-These controls constrain waste, not repair quality. Simulator feedback and
-relevant contract retrieval remain part of the repair loop.
-
-## Build and test in Docker
-
-Run commands from the repository root. Docker must be running. Dependencies are
-installed while building, before the grader restricts runtime networking.
-Keep the Docker VM at the requested approximately 2 GB. Run practice cases
-serially with one evaluation worker; the three model investigators within a
-case still operate in parallel. The official grader's per-fixer resource limits
-remain separate from the VM's total allocation.
+Run from the repository root. These commands are examples, not evidence that a
+new run has completed. Keep frozen tags/artifacts intact; after runtime changes,
+use a new candidate tag and unique output directory.
 
 ```sh
-docker build --platform linux/amd64 -t c3-fixer-prototype:v1-final solution/fixer
+docker build --platform linux/amd64 -t c3-fixer-prototype:v2-r2 solution/fixer
 
-docker image inspect c3-fixer-prototype:v1-final \
+docker image inspect c3-fixer-prototype:v2-r2 \
   --format '{{.Os}}/{{.Architecture}} {{.Size}} {{.Id}}'
 
-docker run --rm --network none --platform linux/amd64 \
-  --entrypoint python3 \
-  -e PYTHONPATH=/fixer \
-  -v "$PWD/solution:/solution:ro" \
-  c3-fixer-prototype:v1-final -m pytest -q /solution/tests
+docker run --rm --platform linux/amd64 --network none --cpus 2 --memory 1g \
+  --mount "type=bind,source=$PWD/solution,target=/solution,readonly" \
+  --entrypoint python c3-fixer-prototype:v2-r2 \
+  -m pytest -q -p no:cacheprovider /solution/tests
 ```
 
-The required image is `linux/amd64` and must be no larger than 4 GB. The image
-has Python 3.12, PyYAML, pytest, and a no-argument entry point. Building the image
-does not contact a model. Unit tests exercise the controller with fake model
-responses; they do not establish a real repair score.
-The frozen Dockerfile retains its historical example-tag comment so the source
-build context matches the measured image exactly; use the `v1-final` tag above.
+Python 3.12, PyYAML, and pytest are installed at image build time. The image has
+a no-argument entry point and needs no dependency downloads at runtime. Offline
+tests use controlled/fake model responses, not paid model calls.
 
-## Run the provided practice cases
+`solution/grade-docker.sh` runs the supplied grader/proxy in a development
+container and assessed fixer images in separate containers. Docker is the only
+host dependency for those grading commands. The ignored repository `.env`
+holds the supplied upstream key; the runner checks that the real proxy loaded
+it without printing it. Each fixer receives a fresh per-case proxy token,
+not the upstream credential.
 
-`solution/grade-docker.sh` runs the supplied grader and proxy in a development
-container, then the unmodified grader launches the fixer image in a separate
-container with the assessment mounts, resource limits, proxy isolation, and
-termination behavior. Docker is the only host dependency. The development
-image contains Python 3.12, PyYAML, pytest, and a Docker client; it is separate
-from the submitted fixer image.
-
-Place the supplied `OPENROUTER_API_KEY` in the repository's ignored `.env`
-without committing or printing it. The development entry point starts the real
-proxy, checks that a key loaded, and requests `--proxy http` so a dead proxy is
-an infrastructure failure. Model requests are paid; no-op baseline runs do not
-call a model. The wrapper defaults to `--concurrency 1 --eval-workers 1` to keep
-benchmarks serial within the requested VM memory allocation.
-
-The following are reproduction commands for a future evaluation session. No
-further paid grading is part of this v1 finalization.
+The R2 pilot is already running. Do not launch a duplicate. For later
+reproduction, use a fresh output directory and one case workload at a time:
 
 ```sh
-# Zero-spend Docker baseline; main initially has no solution fixer.
-docker build --platform linux/amd64 -t c3-fixer-main-baseline:noop \
-  fixers/examples/noop
-./solution/grade-docker.sh --fixer c3-fixer-main-baseline:noop --cases practice \
-  --concurrency 1 --eval-workers 1 \
-  --out results/prototype-main-baseline
+# Paid B2/B3 reproduction after the active pilot finishes.
+./solution/grade-docker.sh --fixer c3-fixer-prototype:v2-r2 \
+  --cases practice/B2 practice/B3 --concurrency 1 --eval-workers 1 --keep \
+  --out solution/results/v2-r2-pilot-repeat
 
-# Optional paid checkpoint for the changed final image.
-./solution/grade-docker.sh --fixer c3-fixer-prototype:v1-final --cases practice/A2 \
-  --concurrency 1 --eval-workers 1 --keep --out results/prototype-v1-final-A2
-
-# Measure the exact frozen image across all six provided cases.
-./solution/grade-docker.sh --fixer c3-fixer-prototype:v1-final --cases practice \
-  --concurrency 1 --eval-workers 1 --keep \
-  --out results/prototype-v1-final-all
+# Full comparison, once the pilot has been inspected.
+./solution/grade-docker.sh --fixer c3-fixer-prototype:v2-r2 \
+  --cases practice --concurrency 1 --eval-workers 1 --keep \
+  --out solution/results/v2-r2-all
 ```
 
-If main later contains a fixer, build and grade that exact main implementation
-as the baseline using the same cases and grading configuration. A no-op run
-would then cease to represent main. Keep each experiment's output directory
-distinct to avoid overwriting earlier evidence.
+The active pilot's output is `solution/results/v2-r2-pilot/`. For each run,
+inspect `result.json` (credited bugs, actual spend/time, gates), `eval.json`
+(per-bug seed outcomes), `patch.diff`, and `fixer.log`. Count official fixes,
+not diagnoses. A credited bug must pass all 20 hidden practice seeds. A patch
+that breaks baseline-passing public/private tests can zero its case.
 
-For each case, inspect `result.json` (`bugs_fixed`, spending, elapsed time),
-`eval.json` (seed outcomes), `patch.diff`, and `fixer.log`. Report fixed bugs and
-total available bugs, not model diagnoses or a count of changed lines. Record
-infrastructure failures separately from a valid score of zero. No score is
-claimed until the official runner finishes against the actual image.
+## Artifact paths and comparison policy
 
-The controller writes JSON event lines to `fixer.log` and a detailed report to
-both temporary scratch `fixer-report.json` and the case workspace's ungraded
-`.c3-fixer-report.json`. Use `--keep` as above to retain grader workspaces under
-`results/.scratch/` for report and source inspection. The report includes
-specialist findings, accepted/rejected candidate checks, and internal budget
-estimates; the official result/ledger remains authoritative for score and cost.
+New repository artifacts stay under `solution/`:
 
-The Docker wrapper builds its development image using Docker's build cache.
-It mounts the repository at the same absolute path on host and container and
-places grader workspaces under `results/.scratch/`, so nested Docker bind
-mounts resolve correctly. Proxy state lives in the named Linux volume
-`c3-prototype-proxy-state`, mounted at its daemon-visible absolute path. This
-allows the supplied grader's sidecar to bind the proxy Unix socket on Docker
-Desktop, where a socket in a macOS bind mount would not work. Each invocation
-gets a separate proxy state directory and writes proxy logs/spending to
-`results/.runner/<run-id>/`. No upstream credential is passed to fixer images;
-the grader supplies fresh per-case proxy tokens.
+- `results/<run>/`: official results, logs, patches, and retained evaluation work.
+- `results/.scratch/`: grader workspaces; `--keep` retains case reports.
+- `results/.runner/<run-id>/`: proxy log and actual spending ledger.
+- `results/.grader-cache/`: overlay for the unmodified grader's cache.
+- `benchmarks/`: sanitized scorecards and image/source/test identities.
+- `evidence/build-chats/`: new redacted public chat exports with role/hash manifest.
+  Existing V1 artifacts under root `results/` and `evidence/` remain preserved.
 
-The runner uses the host Docker socket. Override `C3_DEV_IMAGE` or
-`C3_DEV_PROXY_VOLUME` if needed to choose development image/volume names. It
-retains the volume for later runs
-and stops its proxy on normal completion. The fixer itself has access only to
-the proxy network namespace, its case workspace, and the read-only corpus.
+The wrapper validates `--out`, `--tmp`, and optional `C3_RESULTS_ROOT` to remain
+under `solution/`, including symlink resolution. It mounts the repository at
+the same absolute host/container path for nested case mounts. Linux proxy
+socket/state stays in the existing named Docker volume, mounted at its
+daemon-visible path for Docker Desktop compatibility. The grader's cache
+overlay protects the original cache; no supplied grader code is changed.
 
-Alternatively, if the host has Python 3.12+, PyYAML, and pytest, use the original
-`./grade.sh --fixer c3-fixer-prototype:v1-final --cases practice/A2 --concurrency 1 --eval-workers 1`.
-Passing an image
-still runs the assessed harness in Docker. That wrapper may fall back to a stub
-without a configured key/proxy; a stub run does not establish a live repair
-score. The fully containerized runner above checks the real proxy explicitly.
+The controller writes JSON events to `fixer.log` and a detailed
+`.c3-fixer-report.json` in the ungraded case workspace. It includes candidate
+decisions, issue/evidence state, coverage, stop reasons, and internal budget
+estimates. Official results and the proxy ledger determine scores and cost.
 
-## Iterative development and branch gate
+`benchmark.py` requires both complete six-case reports, comparable bug/seed
+coverage, internally coherent credited flags and scores, and strict improvement.
+Every candidate case must pass public/regression gates, exit zero, and avoid
+timeout/infrastructure errors, including cases with zero fixes. Partial pilots
+cannot satisfy that full comparison. Compare V2 against V1's **9/12**, not the
+historical no-op score. A favorable comparison does **not** authorize a V2
+merge, push, or external submission.
 
-The v1 candidate has passed this gate: its complete frozen-image score is 9/12
-against the original main baseline of 0/12. Apply the same gate to later versions.
+```sh
+# Read-only comparison after the complete R2 scorecard has been collected.
+docker run --rm --network none \
+  --mount "type=bind,source=$PWD/solution,target=/solution,readonly" \
+  --entrypoint python c3-fixer-prototype:v2-r2 /solution/benchmark.py compare \
+  /solution/benchmarks/v1-final-evaluation.json \
+  /solution/benchmarks/v2-r2-evaluation.json
+```
 
-1. Establish main's baseline and save its score artifacts.
-2. Build one runnable prototype, run controller checks in Docker, then grade one
-   practice case. Inspect actual diagnoses, patches, failures, time, and spend.
-3. Record a checkpoint and a hypothesis for the next small improvement. Change
-   one major strategy at a time; repeat the relevant checks before a full sweep.
-4. Grade the candidate image on all six practice cases. Save source and an
-   evidence summary on a dedicated Git branch.
-5. Integrate into main only when the measured total of fixed bugs strictly
-   exceeds main's comparable score. Otherwise retain the candidate branch and
-   explain the observed gap. Equal scores do not satisfy this merge condition.
+## Handoff and next evidence
 
-Human review centers on checkpoint evidence and priorities. The lead agent
-coordinates file ownership, integration, and git operations; specialist agents
-implement and independently review bounded pieces of work. Real credentials,
-large generated result trees, and model ledgers do not belong in commits.
+`fixer/` contains runtime code/build context; `tests/` holds offline harness
+checks; `dev/` and `grade-docker.sh` provide the Docker grader environment.
+`WRITEUP.md` is the short design/results account. `export_build_chats.py`
+exports public user/assistant messages and linked tool evidence with credential
+redaction and hashes; analysis, system/developer context, and inherited parent
+history are excluded. No credential file is read by that exporter.
 
-## Layout and next work
-
-- `fixer/`: controller, model client, local tools, retrieval, validation, Docker
-  build context, and executable `run.sh`.
-- `tests/`: offline reliability tests for the harness, separate from service
-  tests supplied in each case.
-- `dev/` and `grade-docker.sh`: Docker-hosted official grader/proxy runner.
-- `PLAN.md`: supervised, iterative development plan and milestone gates.
-- `STATUS.md`: measured checkpoints, score comparison, and open limitations.
-- `WRITEUP.md`: short architecture and next-steps explanation for handoff.
-- `benchmarks/`: sanitized official scorecards, frozen image metadata, and
-  the machine-checked promotion decision; raw grading artifacts stay in `results/`.
-- `export_build_chats.py`: development-only, credential-redacting export of the
-  four actual build sessions. The exported [role manifest](../evidence/build-chats/manifest.json)
-  and public message/tool transcripts live in ignored `evidence/build-chats/`.
-  Analysis, system/developer context, and inherited parent history are excluded;
-  source snapshots and exports have SHA-256 hashes. No credential file is read.
-
-Observed v2 priorities: expose bounded read-only access to generated scratch
-traces/summaries; allow further evidenced repair after the fixed editor cap;
-retain extra passing seeds as regression guards and add final coverage checks.
-B2's two misses involve cancellation and liveness; B3's miss involves excessive
-registration. Keep rollback and new-invariant protection: B3 safely rejected a
-candidate that introduced an unresolved-job violation. Improve the diagnosis
-loop rather than removing that guard.
-
-Practice results guide the next iteration; unseen hidden codebases remain the
-target. Favor general contract retrieval, evidence-driven repairs, deadline
-reliability, and meaningful validation over case-specific shortcuts. Preserve
-the development chat logs for the required submission handoff.
+R2's remaining gate is empirical: inspect the live pilot, then evaluate one
+frozen image on all six cases and audit seed/regression outcomes. Preserve
+checkpoints and identify a changed hypothesis before another iteration.
+The target is 12/12 supplied bugs; neither that target nor unseen-case
+correctness is presently demonstrated. Prioritize observed repair failures
+over additional orchestration complexity.

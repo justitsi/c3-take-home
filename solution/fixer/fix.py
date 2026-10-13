@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from model import Budget, Client, ModelUnavailable, ModelTruncated, ModelRetryable
 from retrieval import build_context
-from tools import EDIT_TOOL_SCHEMA, READ_TOOL_SCHEMAS, Tools
+from tools import EDIT_TOOL_SCHEMA, READ_TOOL_SCHEMAS, PROBE_TOOL_SCHEMA, Tools
 from validation import Validation
 
 BASE_SYSTEM = """You repair distributed Python services using evidence and current platform contracts.
@@ -58,6 +58,10 @@ ISSUES_SCHEMA = {"type": "function", "function": {"name": "update_issues", "desc
             "check_specs": {"type": "array", "items": {"type": "object"}, "maxItems": 8}},
             "required": ["id"], "additionalProperties": False}}},
         "required": ["issues"], "additionalProperties": False}}}
+
+
+class RollbackFailed(RuntimeError):
+    """A failed restoration must not be mistaken for a retained candidate."""
 
 
 def safe_text(value: str) -> str:
@@ -113,6 +117,7 @@ class Harness:
         self.client = Client(self.budget, self.deadline, self.stop, self.reserve_s)
         self.active_snapshot: Path | None = None
         self.best_snapshot = self.validation.snapshot("original")
+        self.tools.original_source = self.best_snapshot
         self.checkpoints: list[dict] = []
         self.patch_count = 0
         self.records: list[dict] = []
@@ -126,6 +131,7 @@ class Harness:
         self.check_revisions: dict[str, int] = {}
         self.final_result: dict = {}
         self.editor_rounds = 0
+        self.editor_phase_limit = 80
         self.restarts = 0
         self.stop_reason = "not-started"
         self.probes_done = False
@@ -134,6 +140,7 @@ class Harness:
         self.evidence: dict[str, dict] = {}
         self.empty_queries: list[dict] = []
         self.issues: dict[str, dict] = {}
+        self.contract_review: str = ""
         self.edit_lock = threading.Lock()
         self.status = "running"
         self.investigation_until = self.started + max(0, self.deadline - self.started - self.reserve_s) * .35
@@ -155,7 +162,7 @@ class Harness:
         return not self.stop.is_set() and time.time() + self.reserve_s + seconds < self.deadline
 
     def read_tool(self, name: str, args: dict) -> dict:
-        if name not in {"list_files", "read_file", "search", "inspect_trace"}:
+        if name not in {"list_files", "read_file", "search", "inspect_trace", "source_diff"}:
             return {"ok": False, "error": "investigators have read-only tools"}
         try:
             return getattr(self.tools, name)(**args)
@@ -239,8 +246,13 @@ class Harness:
         if not isinstance(spec["scenario"], str):
             raise ValueError("scenario must be a string")
         scenario_root = (self.workspace / "scenarios").resolve()
+        authored = self.authored_scenario(spec["scenario"])
+        if authored is not None:
+            spec["scenario"] = str(authored)
         for field in ("scenario", "faults"):
             value = spec.get(field)
+            if field == "scenario" and authored is not None:
+                continue
             if isinstance(value, str) and ("/" in value or field == "faults"):
                 resolved = (self.workspace / value).resolve()
                 if not resolved.is_relative_to(scenario_root):
@@ -264,6 +276,18 @@ class Harness:
                     "error": "replay invocation/configuration rejected; correct the request before retrying"}
         self.observe_check(result, spec)
         return result
+
+    def authored_scenario(self, value: str) -> Path | None:
+        for alias, entry in self.tools.authored_probes.items():
+            if value not in {alias, entry["path"]}:
+                continue
+            target = Path(entry["path"])
+            root = self.tools.artifacts_root.resolve()
+            if (target.is_symlink() or not target.resolve().is_relative_to(root) or not target.is_file() or
+                    hashlib.sha256(target.read_bytes()).hexdigest() != entry["sha256"]):
+                raise ValueError("authored probe changed or escaped its immutable artifact root")
+            return target
+        return None
 
     def checks(self, seeds: list[int], repeat: bool = False, final: bool = False) -> dict:
         cutoff = self.deadline - (5 if final else self.reserve_s)
@@ -299,7 +323,12 @@ class Harness:
         for index, spec in enumerate(extras):
             if cutoff-time.time() < 2 or self.stop.is_set():
                 break
-            result = self.validation.replay_check(**spec, timeout_s=min(40, (cutoff-time.time()) / (len(extras)-index)))
+            try:
+                self.authored_scenario(spec.get("scenario", "public"))
+                result = self.validation.replay_check(**spec, timeout_s=min(40, (cutoff-time.time()) / (len(extras)-index)))
+            except ValueError as error:
+                result = {"ok": False, "error": str(error), "replay_exit": None, "check_exit": None,
+                          "violations": [], "checked_summary": False}
             result.update(seed=spec["seed"], spec=spec)
             checks["replays"].append(result)
 
@@ -339,7 +368,11 @@ class Harness:
                 self.best_snapshot = prior["snapshot"]
                 try:
                     self.validation.restore(prior["snapshot"])
-                finally:
+                except Exception as error:
+                    self.status = self.stop_reason = "rollback-failed"
+                    self.stop.set()
+                    raise RollbackFailed("rollback failed during final validation") from error
+                else:
                     self.active_snapshot = None
             self.patch_count = prior["revision"]
             self.check_specs, self.check_results = prior["specs"], prior["results"]
@@ -367,6 +400,8 @@ class Harness:
         return self.final_result
 
     def apply_candidate(self, args: dict) -> dict:
+        if self.active_snapshot is not None:
+            return {"ok": False, "fatal": True, "error": "rollback failed; source checkpoint recovery required"}
         if not self.enough_time(55):
             return {"ok": False, "error": "not enough time to validate a source mutation"}
         with self.edit_lock:
@@ -374,12 +409,14 @@ class Harness:
                 return {"ok": False, "error": "deadline allowance after waiting for edit lock"}
             before = self.validation.snapshot(f"before-{self.patch_count + 1}")
             self.active_snapshot = before
+            source_safe = False
             try:
                 result = self.tools.apply_edits(**args)
                 if not result.get("ok"):
                     # The tools layer also rolls back, but a failed filesystem
                     # restore must not leave an unchecked partial patch behind.
                     self.validation.restore(before)
+                    source_safe = True
                     return result
                 prior_state = self.checkpoint_state(before)
                 checks = self.checks(self.seeds, repeat=True)
@@ -396,13 +433,15 @@ class Harness:
                 accepted = bool(checks["syntax"].get("ok") and checks["tests"].get("ok") and checks_complete
                                 and not regressions and not new_categories and not runtime_failures and self.enough_time())
                 if accepted:
+                    accepted_snapshot = self.validation.snapshot(f"accepted-{self.patch_count + 1}")
                     self.checkpoints.append(prior_state)
                     self.patch_count += 1
-                    self.best_snapshot = self.validation.snapshot(f"accepted-{self.patch_count}")
+                    self.best_snapshot = accepted_snapshot
                     for check in replays:
                         self.observe_check(check)
                 else:
                     self.validation.restore(before)
+                source_safe = True
                 record = {"candidate_id": len(self.records)+1, "accepted": accepted, "edit": result,
                           "source_revision_before": prior_state["revision"],
                           "source_revision_after": self.patch_count, "checks": checks}
@@ -426,10 +465,18 @@ class Harness:
                         "checks": checks, "rejection_reasons": reasons,
                         "note": "Remaining original invariant failures may need another repair; passing tests alone do not prove completion."}
             except Exception as error:
-                self.validation.restore(before)
+                try:
+                    self.validation.restore(before)
+                    source_safe = True
+                except Exception as recovery_error:
+                    self.status = self.stop_reason = "rollback-failed"
+                    self.stop.set()
+                    log("rollback_failed", error=type(recovery_error).__name__, checkpoint=str(before))
+                    return {"ok": False, "fatal": True, "error": "rollback failed; checkpoint retained for recovery"}
                 return {"ok": False, "error": f"candidate rolled back: {type(error).__name__}: {str(error)[:250]}"}
             finally:
-                self.active_snapshot = None
+                if source_safe:
+                    self.active_snapshot = None
 
     def coverage_summary(self) -> dict:
         return {"revision": self.patch_count, "checks": [
@@ -469,7 +516,11 @@ class Harness:
             if not result.get("files"):
                 return None
             value = result["files"]
-        elif name in {"validate", "replay_check", "apply_edits"}:
+        elif name == "source_diff":
+            if not result.get("diff"):
+                return None
+            value = result["diff"]
+        elif name in {"validate", "replay_check", "apply_edits", "create_probe"}:
             checks = result.get("checks", result)
             replays = checks.get("replays", [result])
             value = {"accepted": result.get("retained"), "tests_ok": checks.get("tests", {}).get("ok"),
@@ -512,6 +563,9 @@ class Harness:
                 data = {"matches": result.get("matches"), "truncated": result.get("truncated")}
             elif name == "list_files":
                 data = {"files": result.get("files"), "truncated": result.get("truncated")}
+            elif name == "source_diff":
+                data = {"diff": result.get("diff"), "changed_files": result.get("changed_files"),
+                        "truncated": result.get("truncated")}
             else:
                 data = {"candidate_id": result.get("candidate_id"), "retained": result.get("retained"),
                         "rejection_reasons": result.get("rejection_reasons"),
@@ -521,7 +575,7 @@ class Harness:
             if len(rendered) > 2400:
                 rendered = rendered[:1600] + "\n[observation excerpt; middle omitted]\n" + rendered[-750:]
             path = result.get("path", args.get("path", ""))
-            source_fact = str(path).startswith("src/") or (name == "search" and any(
+            source_fact = name == "source_diff" or str(path).startswith("src/") or (name == "search" and any(
                 str(match.get("path", "")).startswith("src/") for match in result.get("matches", [])))
             self.evidence[key] = {"tool": name, "arguments": compact(args, 600), "path": path,
                 "source_revision": self.patch_count if source_fact else None,
@@ -567,7 +621,9 @@ class Harness:
                 specs = update["check_specs"]
                 if not isinstance(specs, list) or len(specs) > 8 or not all(isinstance(spec, dict) for spec in specs):
                     return {"ok": False, "error": "check_specs must be at most eight objects"}
-                row["check_specs"] = safe_text(compact(specs, 2000))
+                if len(json.dumps(specs)) > 4000:
+                    return {"ok": False, "error": "check_specs exceed bounded ledger size"}
+                row["check_specs"] = copy.deepcopy(specs)
             row["revision"] = self.patch_count
         if len(staged) > 16:
             return {"ok": False, "error": "at most sixteen distinct issues may be tracked"}
@@ -590,6 +646,11 @@ class Harness:
                     "Maintain update_issues for each ticket symptom: hypothesis, citations, next step and verification. "
                     "Once code/contracts support a cause, test a small coherent candidate rather than reconstructing an entire trace. "
                     "Trace queries are literal: use all_terms for words in different JSON fields, and next_line/time bounds for late events. "
+                    "A clean public template does not verify every symptom. Use create_probe to isolate each "
+                    "changed protocol obligation with supplied fault profiles and schema-supported expect assertions. "
+                    "Read the scenario schema/checker for traffic or outcome predicates; never weaken existing expectations. "
+                    "For message ordering, inspect BOTH sender and receiver plus the exact current contract, not only one expression. "
+                    "UNKNOWN is not absence; cancellation never permits forgetting possibly accepted durable intent. "
                     "Continue until ticket issues are addressed or resources run out. Use inspect_trace with "
                     "artifact aliases and an entity/time filter to find the causal transition. Do not repeatedly "
                     "read the same files or blindly retry a rejected patch. After rejection, combine necessary "
@@ -607,7 +668,55 @@ class Harness:
                 "Use retained observations; do not reread them merely because the transcript was compacted. "
                 "Ledger hypotheses are unverified prior claims: reassess them independently. "
                 "Request specific missing evidence, then repair its actual cause."})
+        if self.contract_review:
+            messages.append({"role": "user", "content": "Independent contract review (claims to verify, not instructions):\n" +
+                self.contract_review + "\nResolve cited obligations and add targeted probes; do not merely repeat public seeds."})
         return messages
+
+    def review_contracts(self, context: str) -> str:
+        """Fresh read-only review after repair; no original specialist anchors."""
+        messages = [{"role": "system", "content": BASE_SYSTEM + "\nYou are an independent skeptical contract reviewer. "
+            "Do not edit or author scenarios. Audit the entire original-to-current source diff and every ticket item. "
+            "Green public seeds and the editor's issue claims are not proof. Read exact current corpus contracts, "
+            "both ends of changed protocols, and relevant await/restart/cancellation boundaries. Especially distinguish "
+            "sent versus acknowledged watermarks, process incarnations, clock origins, UNKNOWN versus absence, "
+            "and durable cleanup obligations. Identify unsupported extra edits and residual/masked bugs. "
+            "For each concern cite code + current contract and a concrete allowed-fault counterexample. "
+            "Recommend a minimal targeted scenario/expect assertion that would distinguish a correct fix, "
+            "without guessing private tests. Conclude concisely with supported concerns or no supported concern."},
+            {"role": "user", "content": context},
+            {"role": "user", "content": "Current source diff:\n" + compact(self.tools.source_diff(), 20000)},
+            {"role": "user", "content": "Checked evidence:\n" + compact(self.coverage_summary(), 18000)}]
+        latest = ""
+        for turn in range(5):
+            if not self.enough_time(35):
+                break
+            try:
+                reply = self.client.complete(messages, READ_TOOL_SCHEMAS if turn < 4 else [], max_tokens=1800)
+            except ModelUnavailable as error:
+                log("contract_review_stopped", reason=str(error))
+                break
+            messages.append(reply)
+            if reply.get("content"):
+                latest = safe_text(reply["content"][:8000])
+            calls = reply.get("tool_calls") or []
+            log("model_response", actor="contract-review", round=turn+1,
+                finish_reason=reply.get("finish_reason"), tool_calls=len(calls))
+            if not calls:
+                break
+            for index, call in enumerate(calls):
+                function = call.get("function") or {}
+                try:
+                    args = json.loads(function.get("arguments", "{}"))
+                    result = self.read_tool(function.get("name", ""), args) if index < 10 else {"ok": False, "error": "batch limit"}
+                except (ValueError, TypeError):
+                    result = {"ok": False, "error": "invalid review tool arguments"}
+                self.tool_event("contract-review", call, result)
+                messages.append({"role": "tool", "tool_call_id": call["id"], "content": compact(result, 20000)})
+            if turn == 3:
+                messages.append({"role": "user", "content": "Conclude now: strongest supported contract concerns, exact citations, and targeted distinguishing probes. No more tools."})
+        log("contract_review_complete", finding_chars=len(latest))
+        return latest
 
     def tool_event(self, actor: str, call: dict, result: dict, elapsed: float = 0) -> None:
         function = call.get("function") or {}
@@ -632,6 +741,12 @@ class Harness:
             return self.replay_tool(args)
         if name == "update_issues":
             return self.update_issues(**args)
+        if name == "create_probe":
+            probe = self.tools.create_probe(**args)
+            if not probe.get("ok"):
+                return probe
+            checked = self.replay_tool({"seed": probe["seed"], "scenario": probe["scenario_artifact"]})
+            return {**probe, **checked, "probe_sha256": probe["sha256"]}
         if name == "validate":
             if not self.enough_time(15):
                 return {"ok": False, "error": "deadline allowance"}
@@ -644,7 +759,7 @@ class Harness:
 
     def edit(self, context: str) -> None:
         messages = self.editor_messages(context)
-        specs = READ_TOOL_SCHEMAS + [EDIT_TOOL_SCHEMA, VALIDATE_SCHEMA, REPLAY_SCHEMA, ISSUES_SCHEMA]
+        specs = READ_TOOL_SCHEMAS + [EDIT_TOOL_SCHEMA, VALIDATE_SCHEMA, REPLAY_SCHEMA, ISSUES_SCHEMA, PROBE_TOOL_SCHEMA]
         audit_requested = False
         seen = set()
         stagnant = 0
@@ -652,9 +767,10 @@ class Harness:
         empty_restarts = 0
         last_restart_round = -10
         inspection_rounds = 0
-        self.stop_reason = "round-safety-ceiling"
-        for turn in range(80):
-            self.editor_rounds = turn + 1
+        self.stop_reason = "initial-phase-ceiling" if self.editor_phase_limit < 80 else "round-safety-ceiling"
+        starting_round = self.editor_rounds
+        for turn in range(max(0, self.editor_phase_limit-starting_round)):
+            self.editor_rounds = starting_round + turn + 1
             budget = self.budget.summary()
             if budget["limit_usd"] - budget["estimated_spend_usd"] - budget["reserved_usd"] <= .02:
                 self.stop_reason = "model-budget-exhausted"
@@ -679,7 +795,7 @@ class Harness:
                     "Do not repeat unchanged reads. Use a specific missing fact or test a supported candidate."})
                 log("context_compaction", compaction=self.compactions, round=turn+1)
             try:
-                message = self.client.complete(messages, specs, max_tokens=3800)
+                message = self.client.complete(messages, specs, max_tokens=3800, cutoff=self.deadline-self.reserve_s)
                 retries = 0
             except ModelTruncated:
                 log("model_truncated", actor="editor", round=turn+1)
@@ -762,7 +878,7 @@ class Harness:
                     result = {"ok": False, "error": f"invalid arguments: {type(error).__name__}"}
                 self.tool_event("editor", call, result, time.monotonic()-tool_started)
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": compact(result,
-                    20000 if name in {"read_file", "search", "inspect_trace", "list_files"} else 13000)})
+                    20000 if name in {"read_file", "search", "inspect_trace", "list_files", "source_diff"} else 13000)})
                 fingerprint = self.progress_key(name, args, result)
                 if fingerprint is not None and fingerprint not in seen:
                     progress = True
@@ -785,6 +901,7 @@ class Harness:
                   "agents": self.findings, "budget": self.budget.summary(), "candidates": self.records,
                   "editor_rounds": self.editor_rounds, "diagnosis_restarts": self.restarts,
                   "context_compactions": self.compactions, "issues": self.issues,
+                  "contract_review": self.contract_review,
                   "stop_reason": self.stop_reason, "final_validation": self.final_result,
                   "coverage_scope": "declared public seeds and observed probes; not hidden bug certification",
                   "observations": self.coverage_summary()}
@@ -846,24 +963,53 @@ class Harness:
                     except Exception as error:
                         self.findings.append({"agent": "failed-investigator", "error": type(error).__name__})
             log("investigation_complete", agents=len(self.findings), budget=self.budget.summary())
-            if self.enough_time(40):
-                self.edit(context)
+            final_reserve = self.reserve_s
+            self.reserve_s = min(final_reserve+135, max(final_reserve, (self.deadline-time.time())*.30))
+            self.editor_phase_limit = 55
+            try:
+                if self.enough_time(40):
+                    self.edit(context)
+            finally:
+                self.reserve_s = final_reserve
+                self.editor_phase_limit = 80
+            if self.stop_reason == "rollback-failed":
+                self.status = "rollback-failed"
+                return 1
+            if self.enough_time(65):
+                self.contract_review = self.review_contracts(context)
+                if self.contract_review and self.enough_time(40):
+                    self.edit(context)
+            if self.stop_reason == "rollback-failed":
+                self.status = "rollback-failed"
+                return 1
             final = self.final_validation()
             self.status = ("public-verified" if final["all_passed"] else
                            "partial-known-failures" if final["coverage_complete"] else "validation-incomplete")
             return 0
         finally:
+            recovery_error = None
             if self.active_snapshot is not None:
-                self.validation.restore(self.active_snapshot)
+                try:
+                    self.validation.restore(self.active_snapshot)
+                    self.active_snapshot = None
+                except Exception as error:
+                    recovery_error = error
+                    self.status = self.stop_reason = "rollback-failed"
+                    log("rollback_failed", phase="finalization", error=type(error).__name__)
             self.stop.set()
             self.validation.terminate_children()
             self.report(self.shutdown_reason or self.status)
             self.finished.set()
+            if recovery_error is not None:
+                raise RollbackFailed("rollback failed: source checkpoint recovery failed") from recovery_error
 
 
 def main() -> int:
     try:
         return Harness().run()
+    except RollbackFailed as error:
+        log("fatal_recovery_error", error=str(error))
+        return 1
     except (ModelUnavailable, KeyError, ValueError) as error:
         log("configuration_error", error=str(error))
         return 2

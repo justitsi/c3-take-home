@@ -323,7 +323,12 @@ class Validation:
         if exchange(-100, os.fsencode(first), -100, os.fsencode(second), 2) == 0:
             return True
         error = ctypes.get_errno()
-        if error in {errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP, errno.EXDEV}:
+        # Docker Desktop bind mounts can reject RENAME_EXCHANGE with the
+        # ordinary nonempty-directory errors even when native /tmp supports it.
+        # A failed syscall has not exchanged either tree; use the tested
+        # staged two-rename protocol on these filesystems.
+        if error in {errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP, errno.EXDEV,
+                     errno.ENOTEMPTY, errno.EEXIST}:
             return False
         raise OSError(error, os.strerror(error))
 

@@ -3,7 +3,7 @@
 - Branch: `solution/prototype-v2`, based on finalized V1 `96e06b2`. Do not merge or push V2 without a new user request.
 - Preserve V1 images, scores, source and chat artifacts. New repository files, run outputs and handoff artifacts belong under `solution/`.
 - Baseline: V1 **9/12**, $5.850678, 991.65 seconds. Target: **12/12 supplied bugs**, no baseline-passing regressions, all 20 hidden practice seeds per credited bug. Unseen-case perfection is unproven, not a permissible claim.
-- Authoritative limits: repository README/RULES; 900 seconds per case, $3 **per bug**, 2 CPUs/4 GB per fixer. Keep the actual approximately 2 GB Docker VM unchanged; case concurrency and evaluation workers remain **1**.
+- Authoritative limits: repository README/RULES; 900 seconds per case, $3 **per bug**, 2 CPUs/4 GB per fixer. Keep the actual approximately 2 GB Docker VM unchanged. Latest user amendment: separate evaluation sessions per case, with **two sessions at a time** and one case/one grading worker per session; monitor memory before increasing load.
 
 ## Architecture guidance: adopted and adapted
 
@@ -23,6 +23,12 @@
   - Pros: concentrates effort on observed gaps.
   - Cons: these capabilities may help unseen cases; record them as limitations rather than claim universal effectiveness.
 - The supplied architecture document remains unchanged. Its single-agent recommendation and numerical assumptions are suggestions, not overrides of measured evidence or the local rules.
+- R3 adds bounded, immutable scenarios derived from supplied templates and a fresh read-only contract review before the final repair phase.
+  - Pros: targets symptoms that aggregate public seeds can miss; checks sender/receiver and unintended changes independently.
+  - Cons: model-generated probes are not trusted oracles; limit schema/classes/resources, retain all guards, reserve review/repair time, and use official scoring as the outcome evidence.
+- User-requested per-case sessions replace the earlier serial-only evaluation schedule.
+  - Pros: reduces wall-clock time and isolates logs/process handles.
+  - Cons: the unchanged VM is small; cap at two concurrent sessions, one evaluation worker each, and inspect actual memory/process state.
 
 ## Ownership and milestones
 

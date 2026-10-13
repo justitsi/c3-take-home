@@ -1,0 +1,95 @@
+{
+  "bugs_fixed": 2,
+  "bugs_total": 5,
+  "cases": {
+    "B2": {
+      "bugs": [
+        {
+          "fixed": true,
+          "id": "bug-1",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": true,
+          "id": "bug-3",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 2,
+      "cached_input_tokens": 2896918,
+      "case": "B2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 3399063,
+      "output_tokens": 31286,
+      "patch_files": [
+        "src/shardmr/gpu_client.py",
+        "src/shardmr/membership.py",
+        "src/shardmr/scheduler.py",
+        "src/shardmr/worker.py"
+      ],
+      "patch_sha256": "d0ad7b0fa32228ced7dab69bc2022872aec373a23c1c93b0c7986f2aa3418fe1",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r2-pilot/B2/result.json",
+      "spend_usd": 3.221326,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 618.41
+    },
+    "B3": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 16,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 775144,
+      "case": "B3",
+      "fixer_exit": 1,
+      "infra_error": null,
+      "input_tokens": 1039779,
+      "output_tokens": 11917,
+      "patch_files": [
+        "src/shardmr/coordinator.py",
+        "src/shardmr/membership.py"
+      ],
+      "patch_sha256": "1d4863911f1ae12ddf12af5efb1ea531849f364e742d681e9f35bc408d14940d",
+      "regression_ok": false,
+      "result_path": "solution/results/v2-r2-pilot/B3/result.json",
+      "spend_usd": 1.403646,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 199.562
+    }
+  },
+  "complete": false,
+  "fixer_wall_s": 817.972,
+  "image": "c3-fixer-prototype:v2-r2",
+  "image_id": "sha256:13ef71ea43ffb4005fc0b7015bbe778c062c6b94e3e46d640d79009a3ae2c7ba",
+  "infrastructure_errors": [],
+  "missing_cases": [
+    "A1",
+    "A2",
+    "A3",
+    "B1"
+  ],
+  "source_ref": "11aae52",
+  "spend_usd": 4.624972
+}
