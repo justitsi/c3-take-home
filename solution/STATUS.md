@@ -1,4 +1,13 @@
-# Prototype v1 final checkpoint
+# V2 implementation checkpoint
+
+- Active branch: `solution/prototype-v2`, based on finalized V1 `96e06b2`; V1/main remain unchanged. All new repository source, outputs and handoff artifacts stay under `solution/`.
+- Architecture guidance fully reviewed; authoritative local limits retained. [V2_PLAN.md](V2_PLAN.md) records adopted/deferred decisions and milestones. [V2_REVIEW.md](V2_REVIEW.md) tracks independent adversarial review.
+- Implemented: contained artifact read/search/trace inspection; time/budget-aware editor with fresh diagnosis; all-public and scenario/fault-aware guards; automatic final validation; malformed/truncated-response handling; bounded provenance logs; solution-local runner/cache; no-op edit rejection.
+- Offline evidence: **149 tests passed in Docker in 30.44 seconds** on the frozen V2-r1 candidate, including atomic/fallback restoration, real SIGTERM during final rollback, no-op rejection and invalid-probe registry protection. All nine build-context files match the image. [Image/test evidence](benchmarks/v2-r1-image.json). No paid V2 repair score is claimed yet.
+- Independent review fixes: retain discovered scenario guards across rollback; reject invalid probe invocations without poisoning coverage; guard final restoration against SIGTERM and prefer atomic Linux directory exchange with emergency source recovery.
+- Current gate: freeze `c3-fixer-prototype:v2-r1`, serial B2/B3 pilots, then all six official cases on one exact image. No V2 main merge or push is authorized by this goal.
+
+# Preserved V1 checkpoint
 
 - Branch: `solution/prototype-v1`; comparison target: `main` at `2b9066c`.
 - Original main at `2b9066c` contained no submitted fixer. The provided no-op image is the measured comparison baseline: **0/12 bugs across all six cases**, public/regression gates passed. The first parallel baseline encountered an infrastructure OOM on B2; a successful serial, single-worker retry completed the evidence.

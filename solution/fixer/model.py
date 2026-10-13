@@ -16,6 +16,14 @@ class ModelUnavailable(RuntimeError):
     pass
 
 
+class ModelTruncated(ModelUnavailable):
+    """A charged but incomplete response; its partial tool calls must not run."""
+
+
+class ModelRetryable(ModelUnavailable):
+    """A bounded retry may help, with uncertain cost already reserved/settled."""
+
+
 class Budget:
     def __init__(self, limit: float):
         self.limit = max(0.0, limit)
@@ -38,16 +46,22 @@ class Budget:
             if uncertain:
                 self.spent += reservation
                 return
-            usage = usage or {}
-            inp = int(usage.get("prompt_tokens", 0))
-            out = int(usage.get("completion_tokens", 0))
-            details = usage.get("prompt_tokens_details") or {}
-            cached = min(inp, int(details.get("cached_tokens", 0)))
+            if not isinstance(usage, dict):
+                self.spent += reservation
+                return
+            try:
+                inp = max(0, int(usage.get("prompt_tokens", 0)))
+                out = max(0, int(usage.get("completion_tokens", 0)))
+                details = usage.get("prompt_tokens_details") or {}
+                cached = min(inp, max(0, int(details.get("cached_tokens", 0))))
+            except (ValueError, TypeError, AttributeError, OverflowError):
+                self.spent += reservation
+                return
             # Cache writes can cost 1.25x normal input; remain conservative if
             # the provider omits its actual-cost field.
             calculated = ((inp - cached) * 3.75 + cached * 0.30 + out * 15) / 1e6
             cost = usage.get("cost")
-            if not isinstance(cost, (int, float)):
+            if not isinstance(cost, (int, float)) or not math.isfinite(cost):
                 cost = calculated if inp or out else reservation
             self.spent += max(0.0, float(cost))
             self.input_tokens += inp
@@ -80,6 +94,10 @@ class Client:
             remaining = min(remaining, cutoff - time.time())
         if self.stop.is_set() or remaining <= 2:
             raise ModelUnavailable("deadline allowance reached")
+        # Keep transport metadata (such as finish_reason) out of chat messages.
+        messages = [{key: value for key, value in message.items()
+                     if key in {"role", "content", "tool_calls", "tool_call_id", "name"}}
+                    for message in messages]
         body = {"model": MODEL, "messages": messages, "max_tokens": max_tokens,
                 "temperature": 0, "tools": tools, "tool_choice": "auto"} if tools else {
                     "model": MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": 0}
@@ -97,8 +115,17 @@ class Client:
             with urllib.request.urlopen(req, timeout=min(75, remaining)) as response:
                 raw = response.read(4 * 1024 * 1024)
             result = json.loads(raw)
+            if not isinstance(result, dict):
+                raise ValueError("invalid response object")
             usage = result.get("usage")
-            message = result["choices"][0]["message"]
+            charged_uncertain = usage is None
+            choice = result["choices"][0]
+            finish_reason = choice.get("finish_reason")
+            if finish_reason in {"length", "max_tokens"}:
+                raise ModelTruncated("incomplete model response: output token limit")
+            if finish_reason in {"content_filter", "error"}:
+                raise ModelUnavailable("model response refused or incomplete")
+            message = choice["message"]
             if not isinstance(message, dict):
                 raise ValueError("invalid model message")
             calls = message.get("tool_calls") or []
@@ -106,7 +133,7 @@ class Client:
                 raise ValueError("invalid tool-call batch")
             identifiers = set()
             for call in calls:
-                if not isinstance(call, dict) or not isinstance(call.get("id"), str):
+                if not isinstance(call, dict) or not isinstance(call.get("id"), str) or not call["id"]:
                     raise ValueError("invalid tool-call identifier")
                 function = call.get("function")
                 if (call["id"] in identifiers or not isinstance(function, dict) or
@@ -114,10 +141,12 @@ class Client:
                         not isinstance(function.get("arguments"), str)):
                     raise ValueError("invalid tool-call function")
                 identifiers.add(call["id"])
+                if not isinstance(json.loads(function["arguments"]), dict):
+                    raise ValueError("tool arguments must be an object")
             if message.get("content") is not None and not isinstance(message["content"], str):
                 raise ValueError("invalid assistant content")
-            charged_uncertain = usage is None
             return {"role": "assistant", "content": message.get("content") or "",
+                    "finish_reason": finish_reason,
                     **({"tool_calls": calls} if calls else {})}
         except urllib.error.HTTPError as error:
             # Rejected proxy requests are not charged; do not log response
@@ -125,8 +154,11 @@ class Client:
             charged_uncertain = error.code not in (400, 401, 402, 403, 404, 429)
             if not charged_uncertain:
                 usage = {"cost": 0.0}
-            raise ModelUnavailable(f"proxy HTTP {error.code}") from None
-        except (OSError, ValueError, KeyError, IndexError) as error:
+            error_class = ModelRetryable if error.code in (429, 500, 502, 503, 504) else ModelUnavailable
+            raise error_class(f"proxy HTTP {error.code}") from None
+        except OSError as error:
+            raise ModelRetryable(f"model transport unavailable: {type(error).__name__}") from None
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
             raise ModelUnavailable(f"model response unavailable: {type(error).__name__}") from None
         finally:
             self.budget.settle(reservation, usage, uncertain=charged_uncertain)

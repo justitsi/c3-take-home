@@ -6,13 +6,21 @@ set -euo pipefail
 : "${C3_RUNNER_LOG_DIR:?runner must set C3_RUNNER_LOG_DIR}"
 
 cd "$C3_ASSESSMENT_ROOT"
+source /opt/c3-dev/runner_paths.sh
+SOLUTION_DIR="$C3_ASSESSMENT_ROOT/solution"
+RESULTS_ROOT=$(c3_solution_path "${C3_RESULTS_ROOT:-$SOLUTION_DIR/results}" \
+    "$C3_ASSESSMENT_ROOT" "$SOLUTION_DIR")
+RUNNER_LOG_DIR=$(c3_solution_path "$C3_RUNNER_LOG_DIR" "$C3_ASSESSMENT_ROOT" "$SOLUTION_DIR")
+SCRATCH_ROOT=$(c3_solution_path "$RESULTS_ROOT/.scratch" "$C3_ASSESSMENT_ROOT" "$SOLUTION_DIR")
+c3_validate_grader_paths "$C3_ASSESSMENT_ROOT" "$SOLUTION_DIR" "$@"
 if [[ ! -f .env ]]; then
     echo "Docker grader: missing .env containing the supplied OPENROUTER_API_KEY." >&2
     exit 2
 fi
 
-mkdir -p "$C3_PROXY_STATE" "$C3_RUNNER_LOG_DIR" "$C3_ASSESSMENT_ROOT/results/.scratch"
-export C3_PROXY_LEDGER="$C3_RUNNER_LOG_DIR/spend.jsonl"
+mkdir -p "$C3_PROXY_STATE" "$RUNNER_LOG_DIR" "$SCRATCH_ROOT"
+export TMPDIR="$SCRATCH_ROOT"
+export C3_PROXY_LEDGER="$RUNNER_LOG_DIR/spend.jsonl"
 export C3_PROXY_URL=http://127.0.0.1:8787
 export C3_GRADER_PYTHON=/usr/local/bin/python3
 
@@ -28,7 +36,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 python3 proxy/server.py --env "$C3_ASSESSMENT_ROOT/.env" \
-    --state "$C3_PROXY_STATE" >"$C3_RUNNER_LOG_DIR/proxy.log" 2>&1 &
+    --state "$C3_PROXY_STATE" >"$RUNNER_LOG_DIR/proxy.log" 2>&1 &
 PROXY_RUN_PID=$!
 
 # Fail closed if the real proxy cannot start or does not load an upstream key.
@@ -52,7 +60,7 @@ else:
     raise SystemExit("Docker grader: model proxy did not become healthy.")
 PY
 then
-    echo "Docker grader: see $C3_RUNNER_LOG_DIR/proxy.log for startup details." >&2
+    echo "Docker grader: see $RUNNER_LOG_DIR/proxy.log for startup details." >&2
     exit 2
 fi
 
@@ -60,4 +68,5 @@ fi
 # Host Docker must be able to bind these paths into each assessed fixer image.
 ./grade.sh --proxy http --mode docker \
     --concurrency 1 --eval-workers 1 \
-    --tmp "$C3_ASSESSMENT_ROOT/results/.scratch" "$@"
+    --tmp "$SCRATCH_ROOT" \
+    --out "$RESULTS_ROOT/grade-${RUNNER_LOG_DIR##*/}" "${C3_VALIDATED_ARGS[@]}"

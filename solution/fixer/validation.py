@@ -7,6 +7,8 @@ public invariants passed. No command is run through a shell.
 from __future__ import annotations
 
 import json
+import ctypes
+import errno
 import os
 from pathlib import Path
 import re
@@ -37,11 +39,14 @@ class Validation:
         self.workspace = Path(workspace).resolve()
         self.scratch = Path(scratch).resolve()
         self.scratch.mkdir(parents=True, exist_ok=True)
+        self.artifacts = self.scratch / "artifacts"
+        self.artifacts.mkdir(exist_ok=True)
         self.deadline = float(deadline)
         self.stop = stop
         self._children: set[subprocess.Popen] = set()
         self._lock = threading.Lock()
         self._snapshots: set[Path] = set()
+        self._pending_restore: tuple[Path, Path, Path] | None = None
 
     @staticmethod
     def _signal_group(process: subprocess.Popen, signum: int) -> None:
@@ -238,7 +243,7 @@ class Validation:
     def replay_check(self, seed: int, scenario: str = "public", faults=None,
                      timeout_s: float = 45) -> dict:
         started = time.monotonic()
-        directory = Path(tempfile.mkdtemp(prefix=f"replay-{int(seed)}-", dir=self.scratch))
+        directory = Path(tempfile.mkdtemp(prefix=f"replay-{int(seed)}-", dir=self.artifacts))
         trace = directory / "trace.jsonl"
         args = [sys.executable, "-m", "sim", "replay", "--scenario", str(scenario),
                 "--seed", str(int(seed)), "--out", str(directory)]
@@ -277,9 +282,14 @@ class Validation:
                 bounded_violations.append({"invariant": "unknown", "detail": str(violation)[:1200]})
         return {"ok": replay["ok"] and check["ok"] and checked_summary and not violations,
                 "replay_exit": replay["exit_code"], "check_exit": check["exit_code"],
+                "checked_summary": checked_summary,
                 "violations": bounded_violations, "violation_count": len(violations),
+                "invariant_categories": sorted({str(v.get("invariant", "unknown"))
+                    if isinstance(v, dict) else "unknown" for v in violations}),
                 "summary": compact_summary, "trace_path": str(trace),
                 "summary_path": str(directory / "summary.json"),
+                "trace_artifact": "artifacts/" + trace.relative_to(self.artifacts).as_posix(),
+                "summary_artifact": "artifacts/" + (directory / "summary.json").relative_to(self.artifacts).as_posix(),
                 "output": (replay["output"] + "\n" + check["output"])[-MAX_OUTPUT:],
                 "elapsed_s": round(time.monotonic() - started, 4),
                 "timed_out": replay["timed_out"] or check["timed_out"],
@@ -299,6 +309,46 @@ class Validation:
             self._snapshots.add(target)
         return target
 
+    @staticmethod
+    def _exchange_directories(first: Path, second: Path) -> bool:
+        """Linux can atomically exchange nonempty directories, with no src gap."""
+        if sys.platform != "linux":
+            return False
+        library = ctypes.CDLL(None, use_errno=True)
+        exchange = getattr(library, "renameat2", None)
+        if exchange is None:
+            return False
+        exchange.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        exchange.restype = ctypes.c_int
+        if exchange(-100, os.fsencode(first), -100, os.fsencode(second), 2) == 0:
+            return True
+        error = ctypes.get_errno()
+        if error in {errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP, errno.EXDEV}:
+            return False
+        raise OSError(error, os.strerror(error))
+
+    def ensure_source_present(self) -> bool:
+        """Emergency recovery for filesystems without atomic directory exchange.
+
+        No locks: the watchdog may call this while the restore owner is blocked.
+        Each recovery uses one atomic rename from a known staged/checkpoint tree.
+        """
+        pending = self._pending_restore
+        if pending is not None:
+            source, staged, previous = pending
+            if not source.exists():
+                for candidate in (staged, previous):
+                    try:
+                        os.replace(candidate, source)
+                        break
+                    except FileNotFoundError:
+                        continue
+                    except OSError:
+                        if source.is_dir():
+                            break
+        source = self.workspace / "src"
+        return source.is_dir() and not source.is_symlink()
+
     def restore(self, snapshot: Path) -> None:
         snapshot = Path(snapshot).absolute()
         with self._lock:
@@ -315,13 +365,24 @@ class Validation:
         staged_source, previous = staging / "src", staging / "previous-src"
         try:
             shutil.copytree(snapshot, staged_source, symlinks=True)
-            if source.exists():
-                os.replace(source, previous)
-            try:
+            if not source.exists():
                 os.replace(staged_source, source)
-            except BaseException:
-                if previous.exists():
-                    os.replace(previous, source)
-                raise
+            elif not self._exchange_directories(source, staged_source):
+                self._pending_restore = (source, staged_source, previous)
+                os.replace(source, previous)
+                try:
+                    os.replace(staged_source, source)
+                except BaseException:
+                    # A watchdog may already have installed the staged tree.
+                    if not source.exists() and previous.exists():
+                        os.replace(previous, source)
+                    if staged_source.exists():
+                        raise
         finally:
-            shutil.rmtree(staging)
+            present = self.ensure_source_present()
+            if present:
+                self._pending_restore = None
+            # Never remove the only recoverable source if filesystem recovery
+            # itself failed; retain staging for emergency inspection/recovery.
+            if present:
+                shutil.rmtree(staging)

@@ -228,7 +228,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sessions-dir", type=Path, default=DEFAULT_SESSIONS_DIR)
     parser.add_argument("--session", type=Path, action="append", help="explicit JSONL session; repeat for each agent")
-    parser.add_argument("--out", type=Path, default=Path("evidence/build-chats"))
+    parser.add_argument("--out", type=Path, default=Path("solution/evidence/build-chats"))
     args = parser.parse_args(argv)
     try:
         paths = args.session or default_sessions(args.sessions_dir)

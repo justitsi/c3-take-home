@@ -12,4 +12,5 @@ RUN apt-get update \
     && python3 -m pip install --no-cache-dir PyYAML==6.0.2 pytest==8.3.5
 
 COPY entrypoint.sh /opt/c3-dev/entrypoint.sh
+COPY runner_paths.sh /opt/c3-dev/runner_paths.sh
 ENTRYPOINT ["/bin/bash", "/opt/c3-dev/entrypoint.sh"]

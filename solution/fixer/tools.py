@@ -11,13 +11,18 @@ import stat
 import tempfile
 import threading
 
+if __package__:
+    from .artifacts import inspect_jsonl
+else:
+    from artifacts import inspect_jsonl
+
 
 READ_TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
             "name": "list_files",
-            "description": "List bounded file paths. Workspace paths are relative; corpus paths start with corpus/. Corpus root excludes background papers unless explicitly requested.",
+            "description": "List bounded file paths. Workspace paths are relative; corpus/ is documentation; artifacts/ is read-only generated simulator evidence. Corpus root excludes background papers unless explicitly requested.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -33,7 +38,7 @@ READ_TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read numbered lines, at most 400 lines or 18,000 characters. Use corpus/ prefix for documentation.",
+            "description": "Read numbered lines, at most 400 lines or 18,000 characters. Use corpus/ for documentation and artifacts/ for generated trace/summary/log evidence. Prefer inspect_trace for trace JSONL.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -50,7 +55,7 @@ READ_TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search",
-            "description": "Case-insensitive literal text search with filename, line number and adjacent context. Search corpus/service or corpus/platform before explicitly narrowing into background papers.",
+            "description": "Case-insensitive literal text search with filename, line number and adjacent context. artifacts/ searches generated evidence. Search corpus/service or corpus/platform before explicitly narrowing into background papers.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -59,6 +64,25 @@ READ_TOOL_SCHEMAS = [
                     "limit": {"type": "integer", "default": 20},
                 },
                 "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "inspect_trace",
+            "description": "Inspect bounded JSONL trace events with original line numbers. Use artifacts/<run>/trace.jsonl, optional literal entity/event query, and optional center_t ± window_s. Filters combine; returns at most 100 events/18,000 characters, scanning at most 64MiB. Malformed lines are counted, not executed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "query": {"type": "string"},
+                    "center_t": {"type": "number"},
+                    "window_s": {"type": "number", "default": 2.0},
+                    "limit": {"type": "integer", "default": 30},
+                },
+                "required": ["path"],
                 "additionalProperties": False,
             },
         },
@@ -101,6 +125,7 @@ class Tools:
         self.workspace = Path(workspace).resolve()
         self.corpus = Path(corpus).resolve()
         self.scratch = Path(scratch).resolve()
+        self.artifacts_root = self.scratch / "artifacts"
         self._write_lock = threading.Lock()
         self.stop: threading.Event | None = None
 
@@ -116,18 +141,25 @@ class Tools:
         if not isinstance(value, str):
             raise ValueError("path must be a relative string")
         path = Path(value)
-        if path.is_absolute() or ".." in path.parts:
-            raise ValueError("absolute paths and parent traversal are forbidden")
+        if ".." in path.parts:
+            raise ValueError("parent traversal is forbidden")
+        is_artifact = bool(path.parts) and path.parts[0] == "artifacts"
         is_corpus = bool(path.parts) and path.parts[0] == "corpus"
-        root = self.corpus if is_corpus else self.workspace
-        relative = Path(*path.parts[1:]) if is_corpus else path
-        target = (root / relative).resolve()
+        if path.is_absolute():
+            if not self._within(path, self.artifacts_root):
+                raise ValueError("absolute paths are only allowed inside generated artifacts/")
+            is_artifact = True
+        root = self.artifacts_root if is_artifact else (self.corpus if is_corpus else self.workspace)
+        if is_artifact and (root.is_symlink() or not self._within(root.resolve(), self.scratch)):
+            raise ValueError("artifacts root must remain a real directory under scratch")
+        relative = Path(*path.parts[1:]) if is_artifact or is_corpus else path
+        target = path.resolve() if path.is_absolute() else (root / relative).resolve()
         if not self._within(target, root):
             raise ValueError("path or symlink escapes its allowed root")
         return target, root
 
     def _label(self, path: Path, root: Path) -> str:
-        prefix = "corpus/" if root == self.corpus else ""
+        prefix = "artifacts/" if root == self.artifacts_root else ("corpus/" if root == self.corpus else "")
         return prefix + path.relative_to(root).as_posix()
 
     def _files(self, value: str):
@@ -262,6 +294,15 @@ class Tools:
         with self._write_lock:
             return self._apply_edits(edits)
 
+    def inspect_trace(self, path: str, query=None, center_t=None, window_s=2.0, limit=30) -> dict:
+        try:
+            target, root = self._resolve(path)
+            return inspect_jsonl(target, self._label(target, root), query=query,
+                                 center_t=center_t, window_s=window_s, limit=limit,
+                                 stop=self.stop)
+        except (OSError, TypeError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
     def _apply_edits(self, edits: list[dict]) -> dict:
         staged: dict[Path, Path] = {}
         originals: dict[Path, bytes | None] = {}
@@ -296,6 +337,12 @@ class Tools:
                     if count != 1:
                         raise ValueError(f"old text must match exactly once, found {count}: {edit['path']}")
                     candidates[target] = candidates[target].replace(old, new, 1)
+            candidates = {
+                target: candidate for target, candidate in candidates.items()
+                if originals[target] is None or candidate.encode("utf-8") != originals[target]
+            }
+            if not candidates:
+                raise ValueError("no source changes: transaction leaves existing files unchanged")
             for target, candidate in candidates.items():
                 if target.suffix == ".py":
                     ast.parse(candidate, filename=str(target))

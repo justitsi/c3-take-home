@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import threading
 
 import pytest
@@ -37,6 +38,46 @@ def test_new_file_and_multi_edit_journal(tools):
     ])
     assert result["ok"]
     assert (Path(result["journal"]) / "0.before").read_text() == "value = 1\n"
+
+
+@pytest.mark.parametrize("replacements", [
+    [("value = 1", "value = 1")],
+    [("value = 1", "value = 2"), ("value = 2", "value = 1")],
+])
+def test_entirely_unchanged_transaction_is_rejected(tools, replacements):
+    path = tools.workspace / "src/code.py"
+    path.write_text("value = 1\n")
+    before = path.stat().st_mtime_ns
+    result = tools.apply_edits([{"path": "src/code.py", "old": old, "new": new} for old, new in replacements])
+    assert not result["ok"]
+    assert "no source changes" in result["error"]
+    assert path.read_text() == "value = 1\n"
+    assert path.stat().st_mtime_ns == before
+    assert not tools.scratch.exists()
+
+
+def test_unchanged_files_are_omitted_from_mixed_transaction(tools):
+    first = tools.workspace / "src/first.py"
+    second = tools.workspace / "src/second.py"
+    first.write_text("x = 1\n")
+    second.write_text("y = 2\n")
+    before = first.stat().st_mtime_ns
+    result = tools.apply_edits([
+        {"path": "src/first.py", "old": "x = 1", "new": "x = 1"},
+        {"path": "src/second.py", "old": "y = 2", "new": "y = 3"},
+    ])
+    assert result["ok"] and result["changed"] == ["src/second.py"]
+    assert first.stat().st_mtime_ns == before
+    assert first.read_text() == "x = 1\n"
+    assert second.read_text() == "y = 3\n"
+    manifest = json.loads((Path(result["journal"]) / "manifest.json").read_text())
+    assert len(manifest) == 1 and manifest[0]["path"] == str(second)
+
+
+def test_creating_absent_empty_file_is_a_source_change(tools):
+    result = tools.apply_edits([{"path": "src/empty.py", "old": "", "new": ""}])
+    assert result["ok"] and result["changed"] == ["src/empty.py"]
+    assert (tools.workspace / "src/empty.py").read_bytes() == b""
 
 
 @pytest.mark.parametrize("old", ["x = 1", "missing", ""])

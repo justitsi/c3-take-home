@@ -1,0 +1,32 @@
+{
+  "candidate": "v2-r1",
+  "branch": "solution/prototype-v2",
+  "base_commit": "96e06b2",
+  "image": "c3-fixer-prototype:v2-r1",
+  "image_identity": "sha256:9e3f69116902207ff4bc54b10a73ee6026fd788feac280b8643b33aad6abd1b7",
+  "architecture": "amd64",
+  "image_size_bytes": 47634161,
+  "offline_tests": {
+    "passed": 149,
+    "seconds": 30.44,
+    "exec_session": 63913,
+    "exit_code": 0,
+    "network": "none",
+    "cpus": 2,
+    "memory": "1g",
+    "command": "docker run --rm --platform linux/amd64 --network none --cpus 2 --memory 1g --mount type=bind,source=/Users/h/Development/c3-take-home/solution,target=/solution,readonly --entrypoint python c3-fixer-prototype:v2-r1 -m pytest -q -p no:cacheprovider /solution/tests"
+  },
+  "build_context_matches_image": true,
+  "build_context_sha256": {
+    ".dockerignore": "0081720c1da2346998dc9b0bdf1b47eac76ea816f39ce5ecde5f1d9d028443b4",
+    "Dockerfile": "6512a431d2e3cba8ff57588708de28467b6f7bde0aea6fb94e880e9ba4e79b59",
+    "artifacts.py": "a7fb731114f1739408fae19ad8db22f4664814c5ac294fa561da66f5fe0fd4c4",
+    "fix.py": "a7e8e2295938c81eb85e5e9bf57b358f5b6320bee84491d7b730c2da0192199e",
+    "model.py": "b1b4f812d9ce9999ca3ab9b3fc504df4fa55e1d58bb7c45767b943a12aa763dc",
+    "retrieval.py": "80434f70299fe3258a58eb388125cbe827ca203b1feaca8161cd17f3a9125ae7",
+    "tools.py": "26e3317952f2623eb418824c6efe5ecd73fb05a8b7204b993f9597504059b959",
+    "validation.py": "1cb494919fc4bed7d4eb3903c1b5321c1840d7ecd20f4e3553e3d1a93bcb8050",
+    "run.sh": "5c097b8ed8c2808ac0d1c25ab9a454bf269f102a0d71c70c237caa95ef97b188"
+  },
+  "official_repair_evaluation": "pending; offline tests do not establish bug repair effectiveness"
+}
