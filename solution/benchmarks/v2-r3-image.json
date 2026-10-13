@@ -32,5 +32,5 @@
     "run.sh": "5c097b8ed8c2808ac0d1c25ab9a454bf269f102a0d71c70c237caa95ef97b188"
   },
   "official_repair_evaluation": "pending; offline tests do not establish bug repair effectiveness",
-  "case_schedule": "separate per-case sessions; at most two concurrent; one grading worker each; Docker VM unchanged"
+  "case_schedule": "separate per-case sessions; initially two, increased to at most three after live usage around 400MiB; one grading worker each; Docker VM unchanged at1973MiB/4CPUs"
 }

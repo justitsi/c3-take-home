@@ -141,6 +141,8 @@ class Harness:
         self.empty_queries: list[dict] = []
         self.issues: dict[str, dict] = {}
         self.contract_review: str = ""
+        self.review_complete = False
+        self.review_partial = ""
         self.edit_lock = threading.Lock()
         self.status = "running"
         self.investigation_until = self.started + max(0, self.deadline - self.started - self.reserve_s) * .35
@@ -179,15 +181,18 @@ class Harness:
                      "Conclude with compact findings: cause, evidence, recommended edit, verification. "
                      "Do not invent a bug if your focus is unrelated; say no supported finding."}]
         latest = "No supported finding yet."
+        concluded = False
         try:
-            for turn in range(6):
+            for turn in range(7):
                 if not self.enough_time(20) or time.time() >= self.investigation_until:
                     break
                 try:
-                    message = self.client.complete(messages, [] if turn == 5 else READ_TOOL_SCHEMAS, max_tokens=1800,
+                    message = self.client.complete(messages, [] if turn >= 5 else READ_TOOL_SCHEMAS,
+                                                   max_tokens=3200 if turn >= 5 else 1800,
                                                    spend_cap=self.budget.limit * .45,
                                                    cutoff=self.investigation_until)
                 except ModelTruncated:
+                    log("model_truncated", actor=name, round=turn+1)
                     messages.append({"role": "user", "content": "Your response was truncated and no partial tools ran. Conclude with concise evidenced findings, under 1000 tokens."})
                     continue
                 messages.append(message)
@@ -195,6 +200,7 @@ class Harness:
                     latest = message["content"]
                 calls = message.get("tool_calls") or []
                 if not calls:
+                    concluded = bool(message.get("content"))
                     break
                 for index, call in enumerate(calls):
                     function = call.get("function") or {}
@@ -208,10 +214,15 @@ class Harness:
                     messages.append({"role": "tool", "tool_call_id": call["id"], "content": compact(result, 20000)})
                 if turn == 4:
                     messages.append({"role": "user", "content": "Conclude now with your strongest evidenced findings. No further tools."})
-            result = {"agent": name, "finding": latest[:9000]}
+                if turn >= 5:
+                    break
+            result = {"agent": name, "finding": latest[:12000] if concluded else
+                      "No completed specialist conclusion; use retained cited observations.",
+                      **({"stopped": "incomplete-synthesis"} if not concluded else {})}
         except ModelUnavailable as error:
             result = {"agent": name, "finding": latest[:9000], "stopped": str(error)}
-        log("agent_done", agent=name, findings_chars=len(result["finding"]))
+        log("agent_done", agent=name, findings_chars=len(result["finding"]), complete=concluded,
+            stopped=result.get("stopped"))
         return result
 
     def observe_check(self, result: dict, spec: dict | None = None) -> None:
@@ -567,10 +578,18 @@ class Harness:
                 data = {"diff": result.get("diff"), "changed_files": result.get("changed_files"),
                         "truncated": result.get("truncated")}
             else:
+                replay_rows = result.get("checks", result).get("replays", [result])
+                def priority(row):
+                    spec = row.get("spec") or {"seed": row.get("seed", 0)}
+                    previous = self.check_results.get(check_key(spec), {})
+                    return (not bool(categories(row)-categories(previous)), bool(row.get("ok")))
+                replay_rows = sorted(replay_rows, key=priority)[:3]
                 data = {"candidate_id": result.get("candidate_id"), "retained": result.get("retained"),
                         "rejection_reasons": result.get("rejection_reasons"),
-                        "checks": [{"spec": row.get("spec"), "ok": row.get("ok"), "violations": row.get("violations", [])[:3]}
-                            for row in result.get("checks", result).get("replays", [result])]}
+                        "checks": [{"spec": row.get("spec"), "ok": row.get("ok"),
+                            "trace_artifact": row.get("trace_artifact", row.get("trace_path")),
+                            "summary_artifact": row.get("summary_artifact", row.get("summary_path")),
+                            "violations": row.get("violations", [])[:1]} for row in replay_rows]}
             rendered = compact(data, 100000)
             if len(rendered) > 2400:
                 rendered = rendered[:1600] + "\n[observation excerpt; middle omitted]\n" + rendered[-750:]
@@ -637,6 +656,10 @@ class Harness:
         return compact({"issues": issues,
             "warning": "Statuses and hypotheses are model claims, not certification; each ticket symptom needs cited evidence and a verification path."}, 18000)
 
+    def issues_audited(self) -> bool:
+        return all(row.get("status") == "claimed-resolved" and row.get("evidence") and
+                   row.get("revision") == self.patch_count for row in self.issues.values())
+
     def editor_messages(self, context: str, fresh: bool = False) -> list[dict]:
         messages = [{"role": "system", "content": BASE_SYSTEM + "\nYou are the integrating repair agent. "
                     "Evaluate investigators' hypotheses against source/contracts; they can be mistaken. "
@@ -675,6 +698,8 @@ class Harness:
 
     def review_contracts(self, context: str) -> str:
         """Fresh read-only review after repair; no original specialist anchors."""
+        self.review_complete = False
+        self.review_partial = ""
         messages = [{"role": "system", "content": BASE_SYSTEM + "\nYou are an independent skeptical contract reviewer. "
             "Do not edit or author scenarios. Audit the entire original-to-current source diff and every ticket item. "
             "Green public seeds and the editor's issue claims are not proof. Read exact current corpus contracts, "
@@ -688,21 +713,30 @@ class Harness:
             {"role": "user", "content": "Current source diff:\n" + compact(self.tools.source_diff(), 20000)},
             {"role": "user", "content": "Checked evidence:\n" + compact(self.coverage_summary(), 18000)}]
         latest = ""
-        for turn in range(5):
+        summarize_only = False
+        for turn in range(6):
             if not self.enough_time(35):
                 break
             try:
-                reply = self.client.complete(messages, READ_TOOL_SCHEMAS if turn < 4 else [], max_tokens=1800)
+                reply = self.client.complete(messages, READ_TOOL_SCHEMAS if turn < 4 and not summarize_only else [], max_tokens=3200)
+            except ModelTruncated:
+                log("model_truncated", actor="contract-review", round=turn+1)
+                summarize_only = True
+                messages.append({"role": "user", "content": "The review was truncated; no partial tool calls ran. "
+                    "Conclude now in fewer than 1000 tokens: only strongest supported concerns, exact code/contract "
+                    "citations and a distinguishing probe. No long explanation or file reproduction; no more tools."})
+                continue
             except ModelUnavailable as error:
                 log("contract_review_stopped", reason=str(error))
                 break
             messages.append(reply)
             if reply.get("content"):
-                latest = safe_text(reply["content"][:8000])
+                latest = safe_text(reply["content"][:16000])
             calls = reply.get("tool_calls") or []
             log("model_response", actor="contract-review", round=turn+1,
                 finish_reason=reply.get("finish_reason"), tool_calls=len(calls))
             if not calls:
+                self.review_complete = bool(reply.get("content"))
                 break
             for index, call in enumerate(calls):
                 function = call.get("function") or {}
@@ -715,8 +749,11 @@ class Harness:
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": compact(result, 20000)})
             if turn == 3:
                 messages.append({"role": "user", "content": "Conclude now: strongest supported contract concerns, exact citations, and targeted distinguishing probes. No more tools."})
-        log("contract_review_complete", finding_chars=len(latest))
-        return latest
+            if turn >= 4:
+                break
+        self.review_partial = "" if self.review_complete else latest
+        log("contract_review_complete", complete=self.review_complete, finding_chars=len(latest))
+        return latest if self.review_complete else ""
 
     def tool_event(self, actor: str, call: dict, result: dict, elapsed: float = 0) -> None:
         function = call.get("function") or {}
@@ -893,6 +930,13 @@ class Harness:
                     "missing fact and request it. Avoid rebuilding the entire timeline or repeating empty queries."})
             if progress:
                 empty_restarts = 0
+            if audit_requested and self.probes_done and self.all_known_verified() and self.issues_audited():
+                self.stop_reason = "public-and-additional-checks-passed"
+                break
+            if self.editor_phase_limit < 80 and not self.contract_review and inspection_rounds >= 12:
+                self.stop_reason = "diagnosis-needs-independent-review"
+                log("editor_handoff", reason=self.stop_reason, rounds=self.editor_rounds)
+                break
         log("editor_complete", reason=self.stop_reason, rounds=self.editor_rounds, restarts=self.restarts)
 
     def report(self, status: str) -> None:
@@ -902,6 +946,7 @@ class Harness:
                   "editor_rounds": self.editor_rounds, "diagnosis_restarts": self.restarts,
                   "context_compactions": self.compactions, "issues": self.issues,
                   "contract_review": self.contract_review,
+                  "contract_review_complete": self.review_complete, "incomplete_review_text": self.review_partial,
                   "stop_reason": self.stop_reason, "final_validation": self.final_result,
                   "coverage_scope": "declared public seeds and observed probes; not hidden bug certification",
                   "observations": self.coverage_summary()}

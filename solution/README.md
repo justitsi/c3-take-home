@@ -8,6 +8,9 @@ V2 without a new user request.**
 The repository [assessment brief](../README.md) and [rules](../RULES.md) are
 authoritative. [V2_PLAN.md](V2_PLAN.md) defines the iteration gates;
 [STATUS.md](STATUS.md) and [V2_REVIEW.md](V2_REVIEW.md) record evidence and review.
+The supplied [V3 proposal](v3_architecture.md) is mapped in
+[V3_IMPLEMENTATION_PLAN.md](V3_IMPLEMENTATION_PLAN.md): bounded minor R4 work
+is separated from major architecture changes that remain planning only.
 
 ## Current checkpoints
 
@@ -15,7 +18,8 @@ authoritative. [V2_PLAN.md](V2_PLAN.md) defines the iteration gates;
 | --- | --- | --- |
 | Preserved V1 final | **9/12**, all six cases; **$5.850678**, **991.65 s** fixer time | Current complete comparison baseline |
 | V2-r1 | **1/5** on B2/B3; **$6.061312**, **876.019 s** | Setback: V1 fixed **2/5** on those same cases |
-| V2-r2 | **Repair score pending**; B2/B3 serial pilot in progress | Implemented and tested controller, unproven repair effectiveness |
+| V2-r2 | **2/5** on B2/B3; **$4.624972**, **817.972 s** | Nonpromotable: B3 rollback failed, exit 1, new regressions |
+| V2-r3 | **Repair score pending**; separate B2/B3/A1 sessions running | Current controller tested offline; repair effectiveness unproven |
 
 [V1's scorecard](benchmarks/v1-final-evaluation.json) remains intact: A1 1/1,
 A2 2/2, A3 3/3, B1 1/1, B2 1/3, B3 1/2. Every credited bug passed all 20 hidden
@@ -31,13 +35,20 @@ exhausted the 80-round ceiling; repeated investigation and resets did not
 produce enough repairs. Additional controller features alone did not improve
 the measured result.
 
-The current frozen candidate is `c3-fixer-prototype:v2-r2`, source `11aae52`.
-[Image/test evidence](benchmarks/v2-r2-image.json) records `linux/amd64`,
-47,638,807 bytes, all nine build-context files matching the image, and
-**226 offline Docker tests passed in 30.92 seconds**. Its recorded image identity
-is `sha256:13ef71ea43ffb4005fc0b7015bbe778c062c6b94e3e46d640d79009a3ae2c7ba`.
+The [R2 pilot](benchmarks/v2-r2-pilot.json) scored B2 2/3 and B3 0/2. B3 exited
+1 during rejected-candidate rollback on a real Docker host bind mount; an
+unaccepted change remained installed and introduced three baseline regressions.
+R2 is not promotable. Its B2 result also showed that green public seeds can miss
+a contract bug, motivating targeted derived probes and independent review.
+
+The current frozen candidate is `c3-fixer-prototype:v2-r3`, source `2096b49`.
+[Image/test evidence](benchmarks/v2-r3-image.json) records `linux/amd64`,
+47,645,679 bytes, all ten build-context files matching the image, and
+**278 offline Docker tests passed in 30.87 seconds**, including real host
+bind-mount recovery. Its recorded image identity is
+`sha256:639f4282de7d2225365e5476cf245e9cad32c2492273f3d7fb303da7f51d4299`.
 Offline tests verify controller behavior; they do not establish a repair score.
-R2 has no completed six-case comparison or demonstrated improvement yet.
+R3 has no completed six-case comparison or demonstrated improvement yet.
 
 ## How the current harness works
 
@@ -66,16 +77,28 @@ R2 has no completed six-case comparison or demonstrated improvement yet.
    issue hypotheses. A separate fresh diagnosis drops prior hypotheses while
    keeping factual evidence and the latest validated source. Repeated empty
    reads do not count as useful progress. Stagnation, budget, deadline, and
-   completion checks control continuation; **80 rounds is an emergency ceiling,
-   replacing V1's 14-round cap**, not a requirement to spend all 80.
+   completion checks control continuation. The initial editor gets **up to 55
+   rounds** with additional review/follow-up time reserved; all editor phases
+   share an **80-round total emergency ceiling**, replacing V1's 14-round cap.
 6. **Validate and checkpoint.** Candidate checks cover public tests, every
    declared public seed, and registered `(seed, scenario, faults)` probes.
    Preserve previously passing checks, reject newly introduced invariant
    categories, and require complete execution plus a repeated-trace determinism
-   check before retaining a candidate. Roll back rejected or interrupted edits.
+   check before retaining a candidate. Roll back rejected or interrupted edits;
+   R3 adds portable exchange fallback for Docker host bind mounts and explicit
+   fatal rollback status if restoration persistently fails.
    Related prerequisite repairs can form one coherent candidate; original
    unrelated failures may remain after a partial repair.
-7. **Finish with evidence.** Run automatic final validation over the required
+7. **Probe and independently review contracts.** The editor can create bounded,
+   write-once scenarios derived from supplied scenarios. Generated probes are
+   hashed, verified before replay, and registered as scenario-aware checks;
+   supplied scenarios remain unchanged. `source_diff` exposes a bounded diff
+   from the trusted original source checkpoint, with no model-selected paths.
+   If allowance remains, a fresh read-only contract reviewer audits the full
+   patch and every ticket item, without original specialist hypotheses. It can
+   make up to five calls, with a tool-free final summary. Supported concerns go
+   back to the editor for follow-up within the shared 80-round limit.
+8. **Finish with evidence.** Run automatic final validation over the required
    public/probe registry and restore a supported checkpoint after demonstrated
    regressions. Reports distinguish verified public coverage, known remaining
    failures, and incomplete validation. Public coverage does not certify hidden
@@ -94,6 +117,12 @@ and request that next page. The inspector returns at most 100 events/18,000
 characters and scans at most 64 MiB, including skipped prefix lines; oversized
 or malformed evidence is explicitly partial.
 
+Derived probes permit only node classes from their supplied base and supplied
+fault-file paths. Bounds include 32 expanded nodes, 500 actions, a simulation
+end time of at most 600, and 64 KiB serialized data. Creation alone proves
+nothing; the controller must replay and check the immutable probe. Review
+findings and model-authored expectations remain claims, not hidden-test proof.
+
 The model client uses standard-library HTTP and the supplied proxy. Runtime
 uses only permitted Sonnet 4.6; Jev is deferred. Local tools provide retrieval
 and validation. No practice-specific patches, grader data, credentials, or
@@ -104,14 +133,17 @@ cross-case state are embedded in the fixer image. Only case `src/` edits count.
 - Read `C3_WORKSPACE`, `C3_CORPUS`, `C3_DEADLINE`, `C3_BUDGET_USD`, and proxy
   settings. Actual supplied limits take precedence over defaults.
 - Assessment maximum: 900 seconds, $3 **per bug**, 2 CPUs, and 4 GB per fixer.
-  Keep the existing approximately 2 GB local Docker VM unchanged. Run cases
-  serially with one evaluation worker; model investigators remain parallel.
+  The latest schedule amendment permits **at most three active case sessions**, each
+  containing one case and one evaluation worker. Keep the Docker VM unchanged
+  at its recorded **1,973 MiB and 4 CPUs**; model investigators remain parallel.
 - Share conservative request reservations across all agents. Investigation is
   capped at 45% of case budget and 35% of initial usable time. Investigator/editor
   output limits are 1,800/3,800 tokens per call.
 - Reserve 75 seconds under the normal allowance; shorter runs use 10% of initial
   remaining time, bounded between 5 and 75 seconds. Bound HTTP/tools and stop
-  new edits while enough allowance remains for validation.
+  new edits while enough allowance remains for validation. The initial editor
+  temporarily reserves additional contract-review/follow-up allowance, up to
+  135 seconds above the final reserve; later phases retain the final reserve.
 - Reject truncated or malformed model replies before executing partial tools.
   The editor retries transient transport/rate-limit failures within bounded attempts
   and remaining allowance; permanent rejection or exhaustion preserves source.
@@ -131,14 +163,16 @@ new run has completed. Keep frozen tags/artifacts intact; after runtime changes,
 use a new candidate tag and unique output directory.
 
 ```sh
-docker build --platform linux/amd64 -t c3-fixer-prototype:v2-r2 solution/fixer
+docker build --platform linux/amd64 -t c3-fixer-prototype:v2-r3 solution/fixer
 
-docker image inspect c3-fixer-prototype:v2-r2 \
+docker image inspect c3-fixer-prototype:v2-r3 \
   --format '{{.Os}}/{{.Architecture}} {{.Size}} {{.Id}}'
 
+mkdir -p solution/results/.bind-restore-test
 docker run --rm --platform linux/amd64 --network none --cpus 2 --memory 1g \
   --mount "type=bind,source=$PWD/solution,target=/solution,readonly" \
-  --entrypoint python c3-fixer-prototype:v2-r2 \
+  --mount "type=bind,source=$PWD/solution/results/.bind-restore-test,target=/bind-check" \
+  -e C3_TEST_BIND_ROOT=/bind-check --entrypoint python c3-fixer-prototype:v2-r3 \
   -m pytest -q -p no:cacheprovider /solution/tests
 ```
 
@@ -153,22 +187,31 @@ holds the supplied upstream key; the runner checks that the real proxy loaded
 it without printing it. Each fixer receives a fresh per-case proxy token,
 not the upstream credential.
 
-The R2 pilot is already running. Do not launch a duplicate. For later
-reproduction, use a fresh output directory and one case workload at a time:
+The R3 B2/B3/A1 sessions are already running. The cap increased to three after
+observed memory use was approximately 400 MiB for two workloads; the VM was not
+resized. Monitor actual memory as sessions proceed. Do not launch duplicates or
+an extra test workload while this group is active. For later reproduction, use
+fresh output directories and at most three independent case
+sessions; every invocation keeps `--concurrency 1 --eval-workers 1`:
 
 ```sh
-# Paid B2/B3 reproduction after the active pilot finishes.
-./solution/grade-docker.sh --fixer c3-fixer-prototype:v2-r2 \
-  --cases practice/B2 practice/B3 --concurrency 1 --eval-workers 1 --keep \
-  --out solution/results/v2-r2-pilot-repeat
+# Terminal/session 1, after the active group finishes.
+./solution/grade-docker.sh --fixer c3-fixer-prototype:v2-r3 \
+  --cases practice/B2 --concurrency 1 --eval-workers 1 --keep \
+  --out solution/results/v2-r3-cases-repeat/B2-session
 
-# Full comparison, once the pilot has been inspected.
-./solution/grade-docker.sh --fixer c3-fixer-prototype:v2-r2 \
-  --cases practice --concurrency 1 --eval-workers 1 --keep \
-  --out solution/results/v2-r2-all
+# Terminal/session 2: one additional case, not another multi-case batch.
+./solution/grade-docker.sh --fixer c3-fixer-prototype:v2-r3 \
+  --cases practice/B3 --concurrency 1 --eval-workers 1 --keep \
+  --out solution/results/v2-r3-cases-repeat/B3-session
 ```
 
-The active pilot's output is `solution/results/v2-r2-pilot/`. For each run,
+The active sessions write to `solution/results/v2-r3-cases/B2-session/`,
+`solution/results/v2-r3-cases/B3-session/`, and
+`solution/results/v2-r3-cases/A1-session/`. As slots free, run A2, A3, and B1 in
+corresponding one-case sessions, at most three at a time, using the same frozen
+image and monitoring memory. Collect all six session output directories into one
+scorecard; never combine scores from different images. For each run,
 inspect `result.json` (credited bugs, actual spend/time, gates), `eval.json`
 (per-bug seed outcomes), `patch.diff`, and `fixer.log`. Count official fixes,
 not diagnoses. A credited bug must pass all 20 hidden practice seeds. A patch
@@ -207,12 +250,12 @@ historical no-op score. A favorable comparison does **not** authorize a V2
 merge, push, or external submission.
 
 ```sh
-# Read-only comparison after the complete R2 scorecard has been collected.
+# Read-only comparison after the complete R3 scorecard has been collected.
 docker run --rm --network none \
   --mount "type=bind,source=$PWD/solution,target=/solution,readonly" \
-  --entrypoint python c3-fixer-prototype:v2-r2 /solution/benchmark.py compare \
+  --entrypoint python c3-fixer-prototype:v2-r3 /solution/benchmark.py compare \
   /solution/benchmarks/v1-final-evaluation.json \
-  /solution/benchmarks/v2-r2-evaluation.json
+  /solution/benchmarks/v2-r3-evaluation.json
 ```
 
 ## Handoff and next evidence
@@ -224,9 +267,15 @@ exports public user/assistant messages and linked tool evidence with credential
 redaction and hashes; analysis, system/developer context, and inherited parent
 history are excluded. No credential file is read by that exporter.
 
-R2's remaining gate is empirical: inspect the live pilot, then evaluate one
-frozen image on all six cases and audit seed/regression outcomes. Preserve
+R3's remaining gate is empirical: inspect the live sessions, then complete all six
+cases on that frozen image and audit seed/regression outcomes. Preserve
 checkpoints and identify a changed hypothesis before another iteration.
 The target is 12/12 supplied bugs; neither that target nor unseen-case
 correctness is presently demonstrated. Prioritize observed repair failures
 over additional orchestration complexity.
+
+An interim [R3 build-chat checkpoint](evidence/build-chats-r3-checkpoint/manifest.json)
+captures all four actual development sessions through **2026-10-13 21:31:12 UTC**.
+Its role manifest records verified source/export hashes, counts, exclusions and
+credential redaction. It is not a final export and predates the later A1 launch;
+ongoing evaluations and subsequent messages are outside that cutoff.

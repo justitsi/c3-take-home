@@ -1,0 +1,115 @@
+{
+  "bugs_fixed": 2,
+  "bugs_total": 6,
+  "cases": {
+    "A1": {
+      "bugs": [
+        {
+          "fixed": true,
+          "id": "bug-1",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 1,
+      "cached_input_tokens": 2359868,
+      "case": "A1",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 2819194,
+      "output_tokens": 23204,
+      "patch_files": [
+        "src/jobrouter/store.py"
+      ],
+      "patch_sha256": "2e24e47a0d5fd4a6ee022a71394e96b6d2c6d0e8bf2b4431aee277796a7755b5",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r3-cases/A1-session/A1/result.json",
+      "spend_usd": 2.778408,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 478.279
+    },
+    "B2": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-3",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 3800185,
+      "case": "B2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 4510660,
+      "output_tokens": 34497,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r3-cases/B2-session/B2/result.json",
+      "spend_usd": 4.32168,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 615.874
+    },
+    "B3": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": true,
+          "id": "bug-2",
+          "seeds_passed": 20,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 1,
+      "cached_input_tokens": 3532862,
+      "case": "B3",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 4279046,
+      "output_tokens": 38337,
+      "patch_files": [
+        "src/shardmr/membership.py"
+      ],
+      "patch_sha256": "6e518c69c3ffc8a134a39a29510f35cdb1c398bc0f586ac572b14fe37e41ddef",
+      "regression_ok": true,
+      "result_path": "solution/results/v2-r3-cases/B3-session/B3/result.json",
+      "spend_usd": 4.432996,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 834.797
+    }
+  },
+  "complete": false,
+  "fixer_wall_s": 1928.95,
+  "image": "c3-fixer-prototype:v2-r3",
+  "image_id": "sha256:639f4282de7d2225365e5476cf245e9cad32c2492273f3d7fb303da7f51d4299",
+  "infrastructure_errors": [],
+  "missing_cases": [
+    "A2",
+    "A3",
+    "B1"
+  ],
+  "source_ref": "2096b49",
+  "spend_usd": 11.533084
+}

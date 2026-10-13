@@ -1,0 +1,36 @@
+{
+  "candidate": "v2-r4",
+  "branch": "solution/prototype-v2",
+  "base_commit": "96e06b2",
+  "previous_candidate_source": "2096b49",
+  "image": "c3-fixer-prototype:v2-r4",
+  "image_identity": "sha256:0c590ba5b53715f361871365a8213ec2a6689eb31a7a57e35c5905f61dda1ba4",
+  "architecture": "amd64",
+  "image_size_bytes": 47646285,
+  "offline_tests": {
+    "passed": 287,
+    "seconds": 31.0,
+    "exec_session": 19663,
+    "exit_code": 0,
+    "network": "none",
+    "cpus": 2,
+    "memory": "1g",
+    "real_host_bind_mount_tested": true,
+    "command": "docker run --rm --platform linux/amd64 --network none --cpus 2 --memory 1g --mount type=bind,source=/Users/h/Development/c3-take-home/solution,target=/solution,readonly --mount type=bind,source=/Users/h/Development/c3-take-home/solution/results/.bind-restore-test,target=/bind-check -e C3_TEST_BIND_ROOT=/bind-check --entrypoint python c3-fixer-prototype:v2-r4 -m pytest -q -p no:cacheprovider /solution/tests"
+  },
+  "build_context_matches_image": true,
+  "build_context_sha256": {
+    ".dockerignore": "0081720c1da2346998dc9b0bdf1b47eac76ea816f39ce5ecde5f1d9d028443b4",
+    "Dockerfile": "b4cbd41adada41d55df9127d77193a83dd15a5d109af4256db43c61b7dfe0f0b",
+    "artifacts.py": "79ca41c1cd5f2c0fbd4cec1733d80485ff5e5529f42bf13b8a4fc93266908601",
+    "fix.py": "bc64f1bc887f0efa8178bacb57b048427b19c77704b3757ded6ce58d72e7eab5",
+    "model.py": "b1b4f812d9ce9999ca3ab9b3fc504df4fa55e1d58bb7c45767b943a12aa763dc",
+    "probe_authoring.py": "31ad3731e6ddc4e39a1601b5a4ac15604167ebe5a17f766deff76d739b1d122f",
+    "retrieval.py": "80434f70299fe3258a58eb388125cbe827ca203b1feaca8161cd17f3a9125ae7",
+    "tools.py": "b3975543eb63ec1ca1b74206162a9a371ef6f95b275d3c57499f38e36327c4b8",
+    "validation.py": "2f707da061d52723e7a81fb47b59d13f9d24385479ce13d04808f2753ceef609",
+    "run.sh": "5c097b8ed8c2808ac0d1c25ab9a454bf269f102a0d71c70c237caa95ef97b188"
+  },
+  "official_repair_evaluation": "pending; offline tests do not establish bug repair effectiveness",
+  "case_schedule": "all six cases in separate per-case sessions; at most three concurrent; one grading worker each; Docker VM unchanged at1973MiB/4CPUs"
+}

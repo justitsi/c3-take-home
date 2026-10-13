@@ -44,18 +44,18 @@ Docker workloads, grading runs, or practice-case patches are made by this review
 
 | Requirement | Adversarial evidence required | Current review state |
 | --- | --- | --- |
-| Preserve known good behavior | A later patch improves the initial seeds but breaks an ad hoc passing seed or alternate scenario/fault; reject and restore exact prior source | Synthetic 226-test suite passed; real bind-mount rollback failure found in r2 B3, hardening pending |
+| Preserve known good behavior | A later patch improves the initial seeds but breaks an ad hoc passing seed or alternate scenario/fault; reject and restore exact prior source | 278-test r3 suite passed with real bind-root coverage; six actual B3 candidate rollbacks preserved accepted source |
 | Keep identities distinct | Same seed under different scenario/fault configurations remains separate evidence; rechecking one cannot overwrite the other | Passed, including invalid-probe isolation |
 | Handle prerequisite repairs | Reject a new invariant, retain earlier repair, then allow a coherent combined retry to repair both without suppressing checks | Passed in 226-test r2 offline suite |
 | Final coverage | Exercise every configured public seed automatically; incomplete execution must not be reported as complete or clean | Passed, including rollback guard preservation |
 | Adaptive continuation | Continue past the v1 round ceiling when useful and affordable; stop or restart repeated no-progress attempts | Passed in 226-test r2 offline suite |
 | Fresh diagnosis | Reset model context from concise evidence without dropping source checkpoints, observed failures, or passing guards | Passed, including separate compaction, retained facts, and omitted unsupported hypotheses |
-| Preserve shutdown allowance | Stop model/edit activity before final-validation reserve; deadline, cancellation, and budget exhaustion retain valid source | Synthetic atomic/fallback/SIGTERM cases passed; persistent restore failure on host bind mount needs new verification |
+| Preserve shutdown allowance | Stop model/edit activity before final-validation reserve; deadline, cancellation, and budget exhaustion retain valid source | R3 atomic/fallback/SIGTERM and persistent failure tests passed; B3 stopped for final-validation reserve with accepted source intact |
 | Handle incomplete model replies | Truncated/filtered/malformed replies cannot execute a partial mutation; budget reservations settle and recovery/stop is explicit | Passed in 226-test r2 offline suite |
 | Structured observability | Actor/tool/candidate/check identities, outcomes, timings, and source revision are correlated; logs are bounded and omit secrets | Passed in 226-test r2 offline suite |
 | Inspect generated evidence safely | Read/search generated trace and summary through contained bounded tools; reject traversal, symlink escapes, and artifact edits | Passed, including same-record terms, pagination, and complete bounded metadata transport |
 | Maintain runtime contracts | Only permitted model, no arbitrary shell tool, no practice-specific fixes, source-only mutation, deterministic service behavior | Generic runtime audit passed; generated B2 patch has public-contract risks detailed below |
-| Measure actual improvement | Frozen image, all six official cases, 20 seeds per bug, regression gates, cost/runtime, clean infrastructure, comparison against v1 | R2 pilot 2/5 ties v1 on those cases; B3 regression gate and rollback failed. No promotion evidence |
+| Measure actual improvement | Frozen image, all six official cases, 20 seeds per bug, regression gates, cost/runtime, clean infrastructure, comparison against v1 | R3 B-family result 1/5 is below v1's 2/5; no full-suite improvement or promotion evidence |
 
 ## Review limits
 
@@ -95,13 +95,21 @@ Docker workloads, grading runs, or practice-case patches are made by this review
   provenance, bounded/redacted issue claims, same-record term queries and
   pagination, enforced final investigator synthesis, and full trace metadata
   transport to the next model turn.
-- `tests/test_v2_bind_restore.py` (new hardening, verification pending): native
+- `tests/test_v2_bind_restore.py` (verified in r3): native
   exchange errors 39/17, real Docker host-bind restore cycles, exact source
   scope, and persistent rollback failure retaining checkpoints and reporting
   an explicit fatal status rather than an accepted revision.
+- `tests/test_v3_review.py` (verified in r3): immutable authored probe identity,
+  automatic replay/registration, tamper rejection without dropping guards,
+  read-only independent review, enforced final synthesis, phase-two delivery,
+  shared round ceiling, and deadline/cancellation/budget bounds.
+- `tests/test_v3_amendments.py` (r4, verification pending): bounded tool-free
+  synthesis retry with explicit incomplete status, retained rejected-artifact
+  provenance, early read-only handoff preserving repairs/guards, and completed
+  cited audit ending without a redundant completion/restart.
 
 These tests use generic fixtures and mocked model HTTP; they do not encode
-practice-case fixes. The lead's latest serialized offline Docker runs reported:
+practice-case fixes. The lead's r2 serialized offline Docker runs reported:
 
 - Mounted r2 source with r1 dependencies: **226 passed in 31.56 seconds**,
   session `83239`, exit 0.
@@ -299,7 +307,7 @@ workloads and did not inject a case fix.
   postpone failure detection. The finite passing tests do not establish
   that this additional behavior is safe.
 
-### Portable rollback hardening: pending evidence
+### Portable rollback hardening requirements: verified by r3 below
 
 - The native-temp offline suite did not reproduce Docker Desktop's actual
   host-bind filesystem behavior. The new independent tests inject exchange
@@ -310,8 +318,99 @@ workloads and did not inject a case fix.
   rollback result, and report `rollback-failed` rather than `running` or
   `public-verified`. Finalization must retry recovery and raise explicitly
   if it still fails. Independent fixtures are written to this contract;
-  the lead owns runtime changes and serialized verification. No hardening
-  test result or new image repair score is claimed yet.
+  the lead owns runtime changes and serialized verification. The r3 evidence
+  below now verifies this hardening, including actual graded-case rollback.
+
+## Frozen r3: verified reliability, unsuccessful repair improvement
+
+- Source `2096b49`; image index
+  `sha256:639f4282de7d2225365e5476cf245e9cad32c2492273f3d7fb303da7f51d4299`,
+  amd64, 47,645,679 bytes. The lead verified all ten build-context files match.
+- The lead's exact-image suite, including an actual host-bind restore root,
+  passed **278 tests in 30.87 seconds**, session `75348`. Focused recovery
+  verification passed 18 tests. This supersedes the 226-test native-temp-only
+  r2 evidence for the hardening and new review/probe interfaces.
+- The independent B-family audit used
+  `results/v2-r3-cases/{B2-session/B2,B3-session/B3}/` and final reports in
+  `results/.scratch/c3grade-B2-r1-zyzwym1r/workspace/` and
+  `results/.scratch/c3grade-B3-r1-znybwcaj/workspace/`. These two runs do not
+  constitute a full-six-case score.
+
+| Case | Credited bugs | Bug-seed outcomes | Fixer wall time | Cost | Gates |
+| --- | --- | --- | --- | --- | --- |
+| B2 | 0/3 | 0/20, 0/20, 0/20 | 615.874 s | $4.321680 | Public and baseline-relative regression gates pass |
+| B3 | 1/2 | 0/20, 20/20 | 834.797 s | $4.432996 | Public and baseline-relative regression gates pass |
+| B-family | 1/5 | Only B3 bug-2 earns credit | 1,450.671 s summed fixer time | $8.754676 | No timeout/infrastructure failure |
+
+Sessions ran separately; summed fixer time is not elapsed wall time. All
+**100 bug-seed pairs** have exactly two replay runs, valid non-null hashes,
+identical hashes within each pair, and no replay error. Every credited seed
+has a clean checked first run. Both fixers exit 0. Each passes 29 public tests;
+B2 passes 37 regressions with three original failures and B3 passes 39 with
+one original failure. Neither introduces a baseline regression.
+
+### B2: reading without implementation; incomplete independent review
+
+- Empty patch, zero edit attempts and zero accepted candidates. The controller
+  runs 55 initial editor rounds, then review, then reaches the shared 80-round
+  safety ceiling. Five context compactions and zero diagnosis restarts occur.
+  All five final public seeds still fail; status `partial-known-failures` is
+  honest and final coverage complete. All three ledger entries remain
+  `candidate`, revision 0, rather than claiming resolution.
+- There are 202 successful tool results: 125 file reads, 67 trace inspections,
+  eight listings and two ledger updates. No `create_probe` or source edit is
+  attempted. Exposing probe creation therefore has **no measured B2 use**.
+- The independent reviewer performs four tool rounds, then hits its final
+  1,800-token synthesis limit. Its retained 138-character text is only
+  “I'll start by reading…” introductory prose, not an audit conclusion.
+  Phase two reopens on that text, but still makes no edit. The logged
+  `contract_review_complete` name did not prove actual completion in r3.
+- R3 B2 is a setback versus r2's 2/3 and v1's 1/3. This is diagnosis/action
+  failure, not useful patches rejected by guards or a rollback failure.
+
+### B3: safe rejections, retained partial repair, incorrect reviewer inference
+
+- One accepted candidate removes the two-line cross-node clock comparison in
+  `membership.py`. Six later candidates are rejected for new invariant
+  categories, and an eighth edit attempt is denied for insufficient mutation
+  validation time. Actual final source contains only the accepted removal;
+  rejected heartbeat-sequence changes do not escape onto disk. This directly
+  exercises the repaired rollback path on the real host bind mount.
+- The final report records 79 rounds, two diagnosis restarts, five compactions,
+  and stop reason `final-validation-reserve`. Final public coverage is complete
+  but all five seeds retain the registration-count expectation. Both ledger
+  entries remain `candidate` at revision 1. A supported combined dependency
+  repair is not found; the guard is not weakened to keep a rejected candidate.
+- The five-call independent review does deliver a 4,630-character conclusion.
+  However, it claims `fresh=False` may cause a re-registration reply, whereas
+  actual `coordinator.py:250–254` returns `reregister` only when `info is None`;
+  `fresh=False` merely skips reconciliation. It also interprets the documented
+  not-older heartbeat condition as requiring refresh for lower sequence
+  numbers. These are unsupported source/contract inferences, so a completed
+  review is **not** evidence that its proposed causal diagnosis is correct.
+- No probe is authored or replayed in B3 either. The run has 164 completed tool
+  results: 75 file reads, 60 trace inspections, eight edit results, seven ledger
+  updates, five source diffs, four listings, four searches and one validation.
+  The non-success results are six controlled candidate rejections, one missing
+  artifact read and one deadline-denied edit—not process crashes.
+
+### Confirmed gaps and bounded r4 amendments
+
+- Rejected-candidate memory retained seed/spec/violations but omitted its trace
+  and summary artifact citations. After compaction, current coverage pointed
+  only to the accepted revision; B3 spent additional reads locating rejected
+  evidence. Retain those exact citations rather than weakening the guard.
+- Small r4 amendments under test: retry truncated review synthesis concisely,
+  distinguish actual completed review from partial introductory text, retain
+  rejected-artifact provenance, hand an initial read-only stall to independent
+  review after 12 rounds, and finish a fully cited current audit without an
+  extra prose-completion cycle. Investigator final synthesis is also bounded
+  and explicitly handles truncation.
+- These are implementation/reliability amendments, not proven repair gains.
+  Their new independent tests are frozen but not yet reported verified here.
+  R4's separately frozen image needs its own actual full-six-case evaluation.
+  The 12/12 goal remains a target, **not a guarantee**. On the evidence above,
+  r3 must not replace the fully verified 9/12 v1 baseline.
 
 ## Findings and dispositions
 
