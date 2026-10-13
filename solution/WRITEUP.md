@@ -1,33 +1,24 @@
-# Prototype v1 write-up
+# Final write-up — autonomous bug fixer (V1)
 
-This Python prototype runs as a Linux/amd64 Docker image against a fresh service
-workspace and read-only corpus. Three parallel Sonnet 4.6 investigators inspect
-source, logs, invariants, and targeted documentation for recovery, membership,
-and delivery/commit failures. A repair agent combines their evidence, edits only
-`src/`, and iterates using public tests and deterministic simulator replay/check
-feedback. Edits and validation are serialized; checkpoints protect useful
-earlier repairs when a later candidate fails or resources run out.
+This program repairs distributed Python services without human input during a run. It receives an isolated service workspace, an incident report, logs, public tests, a deterministic simulator and read-only documentation describing the service's intended behavior. Its output is changes to the service's `src/` directory—not changes to tests or the simulator.
 
-Standard-library HTTP, bounded retrieval, compact findings, cached prompt
-prefixes, and shared budget reservations control overhead. Timeouts, a shutdown
-reserve, SIGTERM handling, and an `exec` entry point support the grader's deadline
-contract. Dependencies are installed at build time. Cases share no runtime
-state; the image contains no practice-specific patches or grading data.
+## How a repair works
 
-The frozen `c3-fixer-prototype:v1-final` image fixed 9/12 practice bugs: A1 1/1,
-A2 2/2, A3 3/3, B1 1/1, B2 1/3, B3 1/2. Each credited bug passed all 20 hidden
-practice seeds. All baseline-relative test/regression gates passed, with no
-timeout or infrastructure error. Cost was $5.850678 and total fixer runtime
-991.65 seconds; 84.4% of input tokens were cached. This exceeds original main's
-no-op baseline of 0/12 and satisfies the conditional integration gate. Cases
-and evaluation workers ran serially on the unchanged approximately 2 GB Docker
-VM; model investigation remained parallel. The offline suite passed 62 checks.
+1. **Establish the starting state.** The controller runs public tests and simulator checks, then gathers relevant source, log excerpts and current contracts. Public tests can already pass while the reported bug remains.
+2. **Investigate in parallel.** Three read-only Sonnet 4.6 agents examine recovery, leases/membership and message delivery/commit. They return suspected causes, supporting evidence and suggested repairs; they cannot change source.
+3. **Repair sequentially.** One editor checks those hypotheses against the code, proposes small exact-text changes and uses test/simulation feedback to address remaining issues.
+4. **Keep or undo each candidate.** The controller checks Python syntax, public tests and up to two configured public simulator seeds, repeating one replay to compare trace hashes. It rejects incomplete checks, demonstrated regressions and newly introduced invariant categories. Accepted changes become saved source checkpoints; rejected changes restore the previous checkpoint. Partial repairs can be retained while original failures remain.
 
-Three misses remain, so this is not an all-bugs claim. Next, expose bounded
-access to generated traces: current inspection tools cannot read scratch
-artifacts. Replace the fixed editor-round stop with a time/budget-aware repair
-allowance, preserving rollback; B3 correctly rejected a new invariant failure
-but had no rounds left to repair dependencies. Retain additional passing seeds
-as regression guards and improve final seed/fault coverage. The image tarball,
-source/Dockerfile, redacted public build chats from all four agents, and measured
-scorecards are preserved locally. Unseen-codebase performance remains unknown.
+## Code and execution
+
+`fixer/fix.py` coordinates agents, edits and checkpoints. `retrieval.py` selects bounded documentation excerpts; `tools.py` exposes contained reads/searches and source-only edits; `validation.py` runs checks and restores source; `model.py` handles the proxy and shared model budget.
+
+The no-argument Docker entry point reads workspace, corpus, deadline and budget settings from the environment. Shared spending reservations, subprocess timeouts and a shutdown reserve limit resource use. Cases start fresh and carry no repairs between runs. The image contains no practice-specific answers; dependencies are installed at build time.
+
+## Results and limitations
+
+The selected `c3-fixer-prototype:v1-final` image fixed **9/12 practice bugs across all six cases**, costing **$5.850678** with **991.650 seconds** summed fixer runtime. Each credited bug passed all 20 targeted hidden practice seeds. Public/baseline-relative regression gates passed; reviewers audited all 240 repeated trace pairs. The offline suite passed 62 tests.
+
+Three bugs remain: heartbeat/cancellation reconciliation, ambiguous-submit liveness and registration amplification. V1's fourteen editor rounds and limited seed coverage can stop useful investigation early; its inspection tools cannot read generated scratch traces.
+
+V2 experiments added stronger diagnostics, broader guards and independent review, but did not complete a comparable six-case evaluation. V1 therefore remains selected. Next steps are distinguishing protocol probes, evidence-driven continuation and complete exact-image evaluation. Unseen-service correctness is not guaranteed.
