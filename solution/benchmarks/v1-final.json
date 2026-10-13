@@ -1,0 +1,17 @@
+{
+  "checkpoint": "prototype-v1-final",
+  "branch": "solution/prototype-v1",
+  "image": "c3-fixer-prototype:v1-final",
+  "image_id": "sha256:38219577c596f30f84ebdc58bf1ec8b27f941545a61a86fcd78e2b6b94f3c6b3",
+  "platform": "linux/amd64",
+  "docker_inspect_size_bytes": 47626053,
+  "image_tarball": "results/prototype-v1-final.tar",
+  "image_tarball_sha256": "243752078a470551b2fb7f669ceb31731f1adf472df7ec2ccd8a24052da4a11d",
+  "unit_tests": {"passed": 45, "failed": 0, "wall_s": 22.72, "environment": "Docker; Python 3.12; network none"},
+  "paid_evaluation": null,
+  "pilot_evidence": "v1-pilot.json",
+  "baseline_evidence": "main-baseline.json",
+  "promoted_to_main": false,
+  "promotion_reason": "Final hardened source has no paid evaluation; the complete six-case comparison gate is unproven.",
+  "closure_reason": "User requested finalizing prototype v1 before planning version two."
+}

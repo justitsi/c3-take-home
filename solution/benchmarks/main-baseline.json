@@ -1,0 +1,200 @@
+{
+  "bugs_fixed": 0,
+  "bugs_total": 12,
+  "cases": {
+    "A1": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "A1",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "results/baseline-main/A1/result.json",
+      "spend_usd": 0.0,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 0.657
+    },
+    "A2": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "A2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "results/baseline-main/A2/result.json",
+      "spend_usd": 0.0,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 0.65
+    },
+    "A3": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-3",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "A3",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "results/baseline-main/A3/result.json",
+      "spend_usd": 0.0,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 0.539
+    },
+    "B1": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "B1",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "results/baseline-main/B1/result.json",
+      "spend_usd": 0.0,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 0.56
+    },
+    "B2": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-3",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "B2",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "results/baseline-main-B2-serial/B2/result.json",
+      "spend_usd": 0.0,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 0.461
+    },
+    "B3": {
+      "bugs": [
+        {
+          "fixed": false,
+          "id": "bug-1",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        },
+        {
+          "fixed": false,
+          "id": "bug-2",
+          "seeds_passed": 0,
+          "seeds_total": 20
+        }
+      ],
+      "bugs_fixed": 0,
+      "cached_input_tokens": 0,
+      "case": "B3",
+      "fixer_exit": 0,
+      "infra_error": null,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "patch_files": [],
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "regression_ok": true,
+      "result_path": "results/baseline-main/B3/result.json",
+      "spend_usd": 0.0,
+      "tests_ok": true,
+      "timed_out": false,
+      "wall_s": 0.543
+    }
+  },
+  "complete": true,
+  "fixer_wall_s": 3.41,
+  "image": "c3-fixer-baseline:main",
+  "image_id": "sha256:6d7116fd0c99ddb21b335085b0e563adeee3a3f749b3df053f24e45040bcb68b",
+  "infrastructure_errors": [],
+  "missing_cases": [],
+  "source_ref": "2b9066c",
+  "spend_usd": 0.0
+}
