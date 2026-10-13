@@ -70,11 +70,12 @@ environment settings control. See the [brief](../README.md) and [rules](../RULES
 - [fixer/](fixer/): `fix.py` orchestration; `model.py` proxy/budget;
   `retrieval.py` context; `tools.py` reads/edits; `validation.py` checks/rollback.
 - [tests/](tests/): offline harness tests.
-- [WRITEUP.md](WRITEUP.md): short explanation; [STATUS.md](STATUS.md): measured history.
+- [WRITEUP.md](WRITEUP.md): short explanation; [progress/](progress/README.md): working plans/status.
+- [future-work-plan/](future-work-plan/README.md): V2/V3 proposals and roadmap, separate from V1.
 - [benchmarks/](benchmarks/): scorecards and identities. Raw results retain
   `result.json`, `eval.json`, `patch.diff` and `fixer.log`.
-- [Build-chat manifest](../evidence/build-chats/manifest.json): redacted public
-  development messages/tools, with hashes; private reasoning excluded.
+- [V1 build chats](build-chats/v1/README.md): original redacted logs, verified
+  manifest and a separately labelled polished copy of user messages, all tracked.
 
 ## Limits and next work
 

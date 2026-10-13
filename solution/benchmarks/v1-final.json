@@ -14,7 +14,7 @@
   "baseline_evidence": "main-baseline.json",
   "promotion_gate": "v1-promotion.json",
   "promotion_reason": "Complete frozen-image comparison fixes 9 bugs versus the original main baseline of 0; all baseline-relative gates pass and no infrastructure failures occurred.",
-  "build_chat_manifest": "evidence/build-chats/manifest.json",
+  "build_chat_manifest": "solution/build-chats/v1/manifest.json",
   "input_tokens": 5871987,
   "cached_input_tokens": 4958048,
   "output_tokens": 62414,
