@@ -1,39 +1,21 @@
-# Future work plan
+# Future work
 
-These are proposals, not features of the selected V1 image. The supplied
-[V2 architecture](v2_architecture.md) and [V3 architecture](v3_architecture.md)
-are copied unchanged from `solution/prototype-v2`. Their suggestions are
-guidance; the assessment rules and measured results take precedence. The original
-proposals are exempt from the limits on rewritten, authored write-ups.
+Status as of the V3.2 submission; see [../README.md](../README.md). The [V2](v2_architecture.md) and [V3](v3_architecture.md) documents are the original proposals, kept unchanged as background.
 
-V1 remains the selected fully evaluated version: **9/12**. V2 implementation and
-partial evaluation history remain on the V2 branch; no full V2 comparison or
-unseen-case guarantee is claimed.
+## Implemented in V3.x
 
-## Priorities and checkpoints
+Hypothesis register with linked experiments, trace queries and stuck-work timelines, replay log signatures, fault-profile probing before editing, probe-based candidate checks, per-report focus rounds, forced residual repair, and forced action after read-only batches.
 
-1. **Evidence access and continuation:** bounded trace inspection, retained
-   observations and passing guards; stop from evidence/time/budget, not only
-   round count. Pros: less rediscovery, protected progress. Cons: context and
-   validation overhead.
-2. **Hypothesis-driven diagnosis:** compare a few plausible causes using the
-   cheapest distinguishing query/probe. Skip this step for clear causes.
-   Pros: falsifiable reasoning. Cons: extra prompts can delay simple repairs.
-3. **Mechanism-diverse tests:** preserve original failures and known passes;
-   explore supported crash/retry/reordering boundaries and verify the intended
-   events occurred. Pros: stronger coverage. Cons: finite budgets and imperfect
-   probe selection; more seeds alone do not prove diversity.
-4. **Outcome-aware routing and independent review:** distinguish syntax errors,
-   unchanged failures, regressions and new counterexamples. Review both ends of
-   changed protocols. Pros: targeted follow-up. Cons: reviewers can still err.
-5. **Measured selection:** freeze one change, run adversarial offline checks,
-   pilot the exact image, then grade all six cases and audit every credited
-   20-seed result, regression gate, hash, cost and timeout. Replace V1 only after
-   a comparable improvement; never pool scores across images.
+## Gaps
 
-Use separate owners for controller, tools, validation and packaging; serialize
-shared edits. Preserve the last verified candidate at every checkpoint. Further
-implementation/paid evaluation needs renewed user direction; no push or external
-submission is authorized here.
+- No full six-case evaluation of V3.2. Results are single local runs with high variance (B2: 1/3 to 3/3).
+- A3 and B1 not rerun on the final build; B3 has no valid run (API 403).
+- B1 and B3 diagnoses are not implemented. B1: the commit handler decides a duplicate commit by output equality, not task identity. B3: membership keeps `last_hb_seq` across re-registration and compares worker-clock `sent` with coordinator time.
 
-Historical working notes are in [progress/](../progress/README.md).
+## Priorities
+
+1. **Measure.** Run the exact image on all six cases, repeated, in Docker mode. Record variance, cost and time.
+2. **Reduce variance.** Combine rejected one-sided protocol fixes into two-sided candidates, and cap focus-round cost.
+3. **Guard audit.** For every check that ignores or rejects a message, ask whether it can starve a liveness signal.
+4. **Persistent guards.** Keep the failing seeds, probed profiles and extra seeds as regression guards for the whole run.
+5. **Time.** Skip investigators when the cause is clear, and stop once probes and public checks are clean.
