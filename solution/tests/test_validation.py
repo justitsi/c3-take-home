@@ -101,6 +101,20 @@ def test_replays_use_unique_artifacts_and_require_checked_summary(simulator):
     assert not missing_result["ok"]
 
 
+def test_compare_traces_reports_bounded_first_differences(validator):
+    first = validator.scratch / "first.jsonl"
+    second = validator.scratch / "second.jsonl"
+    first.write_text('{"event":"start"}\n{"value":1}\n')
+    second.write_text('{"event":"start"}\n{"value":2}\n{"event":"done"}\n')
+    result = validator.compare_traces(str(first), str(second))
+    assert result["ok"] and not result["identical"]
+    assert result["differences"][0] == {
+        "line": 2, "first": '{"value":1}', "second": '{"value":2}',
+    }
+    assert result["differences"][1]["line"] == 3
+    assert not validator.compare_traces(str(first), str(validator.workspace / "src/service.py"))["ok"]
+
+
 def test_failed_replay_never_counts_as_checked(simulator):
     result = simulator.replay_check(4)
     assert result["replay_exit"] == 3
@@ -285,3 +299,61 @@ def test_simulator_artifact_growth_stops_command(validator, monkeypatch):
     result = validator._run([sys.executable, "-c", script], 3, artifact_dir=output)
     assert not result["ok"] and result["artifact_limit"]
     assert result["elapsed_s"] < 2
+
+
+def test_log_signatures_count_events_by_discriminating_fields(tmp_path):
+    from validation import log_signatures
+    trace = tmp_path / "trace.jsonl"
+    trace.write_text(
+        '{"kind":"log","event":"task_finished","outcome":"lost","t":1}\n'
+        '{"kind":"log","event":"task_finished","outcome":"lost","t":2}\n'
+        '{"kind":"msg_send","event":"x"}\n'
+        '{"kind":"log","event":"gpu_release","t":3}\n'
+    )
+    assert log_signatures(trace) == {"task_finished|outcome=lost": 2, "gpu_release": 1}
+    assert log_signatures(tmp_path / "missing.jsonl") == {}
+
+
+def test_trace_query_returns_related_events_around_first_match(tmp_path):
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    validation = Validation(tmp_path, scratch, time.time() + 60, threading.Event())
+    trace = scratch / "trace.jsonl"
+    rows = [
+        {"t": 1.0, "kind": "msg_recv", "method": "heartbeat", "src": "w1", "dst": "coord"},
+        {"t": 1.1, "kind": "msg_recv", "method": "heartbeat", "src": "w2", "dst": "coord"},
+        {"t": 2.0, "kind": "log", "event": "task_finished", "node": "coord", "worker": "w1",
+         "outcome": "missing", "task": "T", "seq": 9},
+        {"t": 2.1, "kind": "log", "event": "task_finished", "node": "coord", "worker": "w1",
+         "outcome": "missing", "task": "U"},
+    ]
+    trace.write_text("\n".join(json.dumps(row) for row in rows))
+    result = validation.trace_query(str(trace), {"outcome": "missing"})
+    assert result["ok"] and result["matches"] == 2 and result["anchor"] == "task_finished"
+    assert [e.get("src") or e.get("task") for e in result["events"]][0] == "w1"
+    assert all(e.get("src") != "w2" for e in result["events"])
+    assert "seq" not in result["events"][-1]
+    outside = tmp_path / "elsewhere.jsonl"
+    outside.write_text("{}")
+    assert not validation.trace_query(str(outside), {"a": 1})["ok"]
+
+
+def test_unresolved_entities_and_entity_timeline(tmp_path):
+    import threading
+    from fixer.validation import Validation, unresolved_entities
+    summary = {"actions": [
+        {"outcome": "ok", "args": {"job_id": "q1", "tenant": "A"}},
+        {"outcome": "unresolved", "args": {"job_id": "q2", "tenant": "A"}},
+        {"outcome": "unresolved", "args": {"other": 1}}]}
+    assert unresolved_entities(summary) == ["A:q2"]
+    trace = tmp_path / "trace.jsonl"
+    rows = [
+        {"event": "task_dispatch", "job": "A:q2", "task": "t1", "batch": "b1", "t": 1},
+        {"event": "task_done", "task": "t1", "node": "worker-1", "t": 2},
+        {"event": "other_job", "job": "A:q9", "task": "t9", "t": 2},
+        {"kind": "msg_send", "method": "status", "t": 3},
+        {"event": "batch_report_abandoned", "batch": "b1", "t": 4}]
+    trace.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    v = Validation(tmp_path, tmp_path, time.monotonic() + 60, threading.Event())
+    got = v.entity_timeline(str(trace), "A:q2")
+    assert [e["event"] for e in got["events"]] == ["task_dispatch", "task_done", "batch_report_abandoned"]

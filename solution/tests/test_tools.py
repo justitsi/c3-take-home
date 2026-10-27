@@ -154,6 +154,27 @@ def test_bounded_reads_and_case_insensitive_search(tools):
     assert result["matches"][0]["after"] == "after"
 
 
+def test_inspect_function_returns_bounded_numbered_source_and_rejects_outside_src(tools):
+    source = tools.workspace / "src/service.py"
+    source.write_text("class Worker:\n    def renew(self):\n        return True\n")
+    result = tools.inspect_function("src/service.py", "Worker.renew")
+    assert result["ok"]
+    assert result["start_line"] == 2
+    assert "3:         return True" in result["content"]
+    assert not tools.inspect_function("tests/service.py", "renew")["ok"]
+    assert not tools.inspect_function("src/service.py", "missing")["ok"]
+
+
+def test_retrieve_contract_limits_access_to_service_and_platform_docs(tools):
+    (tools.corpus / "platform/current.md").write_text("# Contract\nRetry with stable IDs.\n")
+    (tools.corpus / "background").mkdir()
+    (tools.corpus / "background/paper.md").write_text("Not a contract.\n")
+    result = tools.retrieve_contract("corpus/platform/current.md")
+    assert result["ok"] and "Retry with stable IDs." in result["content"]
+    assert not tools.retrieve_contract("corpus/background/paper.md")["ok"]
+    assert not tools.retrieve_contract("src/service.py")["ok"]
+
+
 def test_corpus_broad_search_excludes_background(tools):
     (tools.corpus / "platform/current.md").write_text("token needle\n")
     (tools.corpus / "background").mkdir()

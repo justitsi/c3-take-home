@@ -6,6 +6,7 @@ public invariants passed. No command is run through a shell.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,48 @@ SUMMARY_KEYS = (
     "error", "trace_sha256", "final_t", "end_at", "quiesce_at", "liveness_window",
     "validation_error",
 )
+
+
+SIGNATURE_FIELDS = ("outcome", "reason", "code", "state", "verdict", "cause")
+
+
+def log_signatures(trace: Path, limit: int = 60) -> dict:
+    """Count log events by name and discriminating fields, e.g. task_finished|outcome=lost."""
+    counts: dict[str, int] = {}
+    try:
+        if not trace.is_file() or trace.stat().st_size > MAX_ARTIFACT_BYTES:
+            return {}
+        with trace.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                if '"kind":"log"' not in line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    continue
+                parts = [str(record.get("event", "?"))]
+                parts += [f"{key}={record[key]}" for key in SIGNATURE_FIELDS
+                          if isinstance(record.get(key), (str, int, bool))]
+                key = "|".join(parts)[:160]
+                counts[key] = counts.get(key, 0) + 1
+    except OSError:
+        return {}
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit])
+
+
+def unresolved_entities(summary: dict, cap: int = 5) -> list[str]:
+    """Trace `job` ids of client actions that never resolved, so a stuck entity can be traced."""
+    out = []
+    for action in summary.get("actions") or []:
+        if not isinstance(action, dict) or action.get("outcome") != "unresolved":
+            continue
+        args = action.get("args") or {}
+        job = args.get("job_id")
+        if job is None:
+            continue
+        tenant = args.get("tenant")
+        out.append(f"{tenant}:{job}" if tenant is not None else str(job))
+    return out[:cap]
 
 
 class Validation:
@@ -278,13 +321,120 @@ class Validation:
         return {"ok": replay["ok"] and check["ok"] and checked_summary and not violations,
                 "replay_exit": replay["exit_code"], "check_exit": check["exit_code"],
                 "violations": bounded_violations, "violation_count": len(violations),
-                "summary": compact_summary, "trace_path": str(trace),
+                "unresolved_entities": unresolved_entities(summary),
+                "summary": compact_summary, "log_signatures": log_signatures(trace),
+                "trace_path": str(trace),
                 "summary_path": str(directory / "summary.json"),
                 "output": (replay["output"] + "\n" + check["output"])[-MAX_OUTPUT:],
                 "elapsed_s": round(time.monotonic() - started, 4),
                 "timed_out": replay["timed_out"] or check["timed_out"],
                 "cancelled": replay["cancelled"] or check["cancelled"],
                 "replay": replay, "check": check}
+
+    def entity_timeline(self, trace_path: str, job: str, limit: int = 40) -> dict:
+        """Application-level events of one job and the tasks/batches that carry it, oldest first."""
+        try:
+            path = Path(trace_path).resolve(strict=True)
+            if (not path.is_relative_to(self.scratch) or path.is_symlink() or not path.is_file()
+                    or path.stat().st_size > 16 * 1024 * 1024):
+                raise ValueError("trace must be a regular file under fixer scratch and at most 16 MiB")
+            records = []
+            with path.open(encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    try:
+                        record = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(record, dict) and "event" in record:
+                        records.append(record)
+            tasks = {str(r["task"]) for r in records if str(r.get("job")) == job and r.get("task") is not None}
+            batches = {str(r["batch"]) for r in records if str(r.get("job")) == job and r.get("batch") is not None}
+            batches |= {str(r["batch"]) for r in records if str(r.get("task")) in tasks and r.get("batch") is not None}
+            events = [{k: v for k, v in r.items() if k not in ("local_t", "node_boot", "seq", "kind")}
+                      for r in records
+                      if str(r.get("job")) == job or str(r.get("task")) in tasks
+                      or str(r.get("batch")) in batches]
+            truncated = len(events) > limit
+            return {"ok": True, "job": job, "events": events[:limit] if not truncated else events[-limit:],
+                    "truncated": truncated}
+        except (OSError, TypeError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def compare_traces(self, first: str, second: str) -> dict:
+        """Compare two bounded traces created in this run's private scratch area."""
+        try:
+            paths = [Path(first).resolve(strict=True), Path(second).resolve(strict=True)]
+            for path in paths:
+                if (not path.is_relative_to(self.scratch) or path.is_symlink() or
+                        not path.is_file() or path.stat().st_size > 4 * 1024 * 1024):
+                    raise ValueError("trace must be a regular file under fixer scratch and at most 4 MiB")
+            contents = [path.read_bytes() for path in paths]
+            lines = [content.splitlines() for content in contents]
+            differences = []
+            for index in range(max(len(lines[0]), len(lines[1]))):
+                left = lines[0][index] if index < len(lines[0]) else None
+                right = lines[1][index] if index < len(lines[1]) else None
+                if left != right:
+                    differences.append({
+                        "line": index + 1,
+                        "first": left.decode("utf-8", errors="replace")[:600] if left is not None else None,
+                        "second": right.decode("utf-8", errors="replace")[:600] if right is not None else None,
+                    })
+                    if len(differences) == 8:
+                        break
+            return {
+                "ok": True,
+                "identical": contents[0] == contents[1],
+                "first_sha256": hashlib.sha256(contents[0]).hexdigest(),
+                "second_sha256": hashlib.sha256(contents[1]).hexdigest(),
+                "first_lines": len(lines[0]),
+                "second_lines": len(lines[1]),
+                "differences": differences,
+                "truncated": len(differences) == 8,
+            }
+        except (OSError, TypeError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def trace_query(self, trace_path: str, match: dict, before_s: float = 3.0, after_s: float = 0.5,
+                    limit: int = 60, anchor_last: bool = False) -> dict:
+        """Events around the first trace record matching `match`, limited to records sharing its entities."""
+        try:
+            path = Path(trace_path).resolve(strict=True)
+            if (not path.is_relative_to(self.scratch) or path.is_symlink() or not path.is_file()
+                    or path.stat().st_size > 16 * 1024 * 1024):
+                raise ValueError("trace must be a regular file under fixer scratch and at most 16 MiB")
+            if not isinstance(match, dict) or not match:
+                raise ValueError("match must be a non-empty object of exact field values")
+            records, anchor, total = [], None, 0
+            with path.open(encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    try:
+                        record = json.loads(line)
+                    except ValueError:
+                        continue
+                    records.append(record)
+                    if all(str(record.get(key)) == str(value) for key, value in match.items()):
+                        total += 1
+                        anchor = record if anchor_last else (anchor or record)
+            if anchor is None:
+                return {"ok": True, "matches": 0, "events": []}
+            keys = ("task", "job", "worker", "node", "src", "dst", "batch")
+            entities = {str(anchor[key]) for key in ("task", "job", "worker", "batch")
+                        if anchor.get(key) is not None}
+            low, high = anchor.get("t", 0) - float(before_s), anchor.get("t", 0) + float(after_s)
+            events = []
+            for record in records:
+                moment = record.get("t")
+                if not isinstance(moment, (int, float)) or not low <= moment <= high:
+                    continue
+                if record is anchor or any(str(record.get(key)) in entities for key in keys):
+                    events.append({k: v for k, v in record.items()
+                                   if k not in ("local_t", "node_boot", "seq", "kind") or k == "kind" and v != "log"})
+            truncated = len(events) > min(int(limit), 120)
+            return {"ok": True, "matches": total, "anchor_t": anchor.get("t"), "anchor": anchor.get("event"),
+                    "events": events[:min(int(limit), 120)], "truncated": truncated}
+        except (OSError, TypeError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
 
     def snapshot(self, name: str) -> Path:
         source = self.workspace / "src"

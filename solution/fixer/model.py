@@ -74,14 +74,15 @@ class Client:
             raise ModelUnavailable("runtime must use the permitted Sonnet model")
 
     def complete(self, messages: list[dict], tools: list[dict], max_tokens: int = 1800,
-                 spend_cap: float | None = None, cutoff: float | None = None) -> dict:
+                 spend_cap: float | None = None, cutoff: float | None = None,
+                 tool_choice: str = "auto") -> dict:
         remaining = self.deadline - time.time() - self.reserve_s
         if cutoff is not None:
             remaining = min(remaining, cutoff - time.time())
         if self.stop.is_set() or remaining <= 2:
             raise ModelUnavailable("deadline allowance reached")
         body = {"model": MODEL, "messages": messages, "max_tokens": max_tokens,
-                "temperature": 0, "tools": tools, "tool_choice": "auto"} if tools else {
+                "temperature": 0, "tools": tools, "tool_choice": tool_choice} if tools else {
                     "model": MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": 0}
         encoded = json.dumps(body, ensure_ascii=False).encode()
         # Proxy uses approximately chars/4 and a 1.25x input reserve. chars/3

@@ -7,6 +7,7 @@ import fnmatch
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import tempfile
 import threading
@@ -63,6 +64,39 @@ READ_TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "inspect_function",
+            "description": "Inspect one Python function or class method under src/, with numbered source lines.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "name": {"type": "string"},
+                },
+                "required": ["path", "name"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "retrieve_contract",
+            "description": "Read a bounded excerpt from current service/platform contracts or workspace service-docs; background papers are excluded.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "start_line": {"type": "integer", "default": 1},
+                    "end_line": {"type": "integer", "default": 160},
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 EDIT_TOOL_SCHEMA = {
@@ -85,7 +119,11 @@ EDIT_TOOL_SCHEMA = {
                         "required": ["path", "old", "new"],
                         "additionalProperties": False,
                     },
-                }
+                },
+                "hypothesis_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
             },
             "required": ["edits"],
             "additionalProperties": False,
@@ -255,6 +293,60 @@ class Tools:
                     truncated = True
                     break
             return {"ok": True, "matches": matches, "truncated": truncated}
+        except (OSError, TypeError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def inspect_function(self, path: str, name: str) -> dict:
+        try:
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", name):
+                raise ValueError("name must be a Python function or qualified method identifier")
+            target, root = self._resolve(path)
+            source = self.workspace / "src"
+            if root != self.workspace or not self._within(target, source) or target.suffix != ".py":
+                raise ValueError("inspect_function only accepts Python files under src/")
+            lines = target.read_text(encoding="utf-8").splitlines()
+            tree = ast.parse("\n".join(lines), filename=str(target))
+            matches = []
+
+            def visit(node, parents=()):
+                for child in ast.iter_child_nodes(node):
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        qualified = ".".join((*parents, child.name))
+                        if child.name == name or qualified == name:
+                            matches.append((child.lineno, child.end_lineno or child.lineno, qualified))
+                        visit(child, (*parents, child.name) if isinstance(child, ast.ClassDef) else parents)
+
+            visit(tree)
+            if len(matches) != 1:
+                raise ValueError(f"expected one function/method named {name}, found {len(matches)}")
+            first, last, qualified = matches[0]
+            last = min(last, first + 159)
+            return {
+                "ok": True,
+                "path": self._label(target, root),
+                "name": qualified,
+                "start_line": first,
+                "end_line": last,
+                "content": "\n".join(f"{line}: {lines[line - 1]}" for line in range(first, last + 1)),
+                "truncated": matches[0][1] > last,
+            }
+        except (OSError, SyntaxError, TypeError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def retrieve_contract(self, path: str, start_line=1, end_line=160) -> dict:
+        try:
+            target, root = self._resolve(path)
+            relative = target.relative_to(root)
+            allowed = (
+                root == self.corpus and (
+                    relative == Path("INDEX.md")
+                    or relative.parts[:1] == ("service",)
+                    or relative.parts[:1] == ("platform",)
+                )
+            ) or (root == self.workspace and relative.parts[:1] == ("service-docs",))
+            if not allowed or target.suffix.lower() not in {".md", ".txt"}:
+                raise ValueError("contracts must be under corpus/service, corpus/platform, corpus/INDEX.md, or service-docs/")
+            return self.read_file(path, start_line, end_line)
         except (OSError, TypeError, ValueError) as exc:
             return {"ok": False, "error": str(exc)}
 

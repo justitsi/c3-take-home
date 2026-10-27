@@ -63,6 +63,7 @@ def test_parallel_calls_overlap_and_preserve_function_calls(monkeypatch):
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             assert body["model"] == "anthropic/claude-sonnet-4.6"
+            assert body["tool_choice"] == "required"
             arrived.wait(timeout=3)
             data = json.dumps({"choices": [{"message": {"content": None, "tool_calls": [
                 {"id": "tool-1", "type": "function", "function": {"name": "search", "arguments": "{}"}}]}}],
@@ -80,7 +81,10 @@ def test_parallel_calls_overlap_and_preserve_function_calls(monkeypatch):
     client = Client(Budget(3), time.time()+10, threading.Event(), reserve_s=1)
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
-            replies = list(pool.map(lambda _: client.complete([], [], max_tokens=100), range(2)))
+            replies = list(pool.map(lambda _: client.complete(
+                [], [{"type": "function", "function": {"name": "search"}}],
+                max_tokens=100, tool_choice="required",
+            ), range(2)))
         assert all(reply["tool_calls"][0]["function"]["name"] == "search" for reply in replies)
         assert client.budget.calls == 2
         assert client.budget.spent == pytest.approx(.002)
